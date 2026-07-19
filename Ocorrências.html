@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ocorrências</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="o-container__turmas">Ocorrências</h2>
+                            <p class="panel-subtitle">Selecione uma turma para acessar a tela dedicada de alunos e ocorrências.</p>
+                        </div>
+                    </div>
+
+                    <div class="occurrence-layout">
+                        <div class="occurrence-list">
+                            <h3>Turmas</h3>
+                            <table class="o-container__turmas__cadastrar__tabela">
+                                <thead>
+                                    <tr>
+                                        <th>Código da Turma</th>
+                                        <th>Curso</th>
+                                        <th>Instrutor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaTurmasOcorrencia"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="occurrence-detail">
+                            <h3>Visão da turma</h3>
+                            <div class="detail-card">
+                                <p>Escolha uma turma da lista para abrir a tela dedicada de alunos e ocorrências.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

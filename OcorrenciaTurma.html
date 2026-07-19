@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ocorrências da Turma</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 id="tituloTurmaOcorrencia" class="o-container__turmas">Turma</h2>
+                            <p id="dadosTurmaOcorrencia" class="panel-subtitle"></p>
+                        </div>
+                        <button type="button" id="btnCadastrarAlunos" class="o-container__turmas__cadastrar">Cadastrar Alunos</button>
+                    </div>
+
+                    <div id="listaAlunosOcorrencia" class="alunos-lista"></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modalOcorrencia" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="modalTituloOcorrencia">Adicionar ocorrência</h3>
+            <input type="hidden" id="codigoTurmaOcorrencia" value="">
+            <input type="hidden" id="alunoOcorrencia" value="">
+            <div class="form-grid">
+                <label>
+                    Tipo de ocorrência
+                    <select id="tipoOcorrencia">
+                        <option value="Pedagógica">Pedagógica</option>
+                        <option value="Comportamental">Comportamental</option>
+                        <option value="Frequência">Frequência</option>
+                    </select>
+                </label>
+                <label>
+                    Descrição
+                    <textarea id="descricaoOcorrencia" rows="5" placeholder="Descreva a situação..."></textarea>
+                </label>
+                <label>
+                    Sugestão de texto
+                    <textarea id="textoAssistido" rows="4" placeholder="A assistência de texto pode sugerir uma redação..."></textarea>
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão</button>
+                <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
+                <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

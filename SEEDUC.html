@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEEDUC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="o-container__turmas">SEEDUC</h2>
+                            <p class="panel-subtitle">Gerencie as turmas e os registros de acompanhamento SEEDUC.</p>
+                        </div>
+                        <button type="button" class="o-container__turmas__cadastrar" onclick="abrirModalCadastroSeeduc()">Cadastrar Turmas</button>
+                    </div>
+
+                    <div class="seeduc-submenu">
+                        <button type="button" class="seeduc-submenu__item active" data-aba="turmas" onclick="mostrarAbaSeeduc('turmas')">Turmas</button>
+                        <button type="button" class="seeduc-submenu__item" data-aba="relatorios" onclick="mostrarAbaSeeduc('relatorios')">Relatórios</button>
+                    </div>
+
+                    <div id="conteudoSeeduc" class="seeduc-relatorio"></div>
+
+                    <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaSeeducBase" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>Município</th>
+                                <th>Escola</th>
+                                <th>Código da Turma</th>
+                                <th>Data Início</th>
+                                <th>Data Fim</th>
+                                <th>Instrutor</th>
+                                <th>SGE</th>
+                                <th>Observações</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaSeeduc"></tbody>
+                    </table>
+
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modalCadastroSeeduc" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="modalTituloSeeduc">Cadastrar turma SEEDUC</h3>
+            <form id="formCadastroSeeduc" onsubmit="salvarTurmaSeeduc(event)">
+                <input type="hidden" id="indiceTurmaSeeducEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        Município
+                        <input id="municipioSeeduc" type="text" required>
+                    </label>
+                    <label>
+                        Escola
+                        <input id="escolaSeeduc" type="text" required>
+                    </label>
+                    <label>
+                        Código da Turma
+                        <input id="codigoTurmaSeeduc" type="text" required>
+                    </label>
+                    <label>
+                        Instrutor
+                        <input id="instrutorSeeduc" type="text" required>
+                    </label>
+                    <label>
+                        Data Início
+                        <input id="dataInicioSeeduc" type="date" required>
+                    </label>
+                    <label>
+                        Data Fim
+                        <input id="dataFimSeeduc" type="date" required>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalCadastroSeeduc()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAEP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="o-container__turmas">SAEP</h2>
+                            <p class="panel-subtitle">Área para gestão de registros SAEP.</p>
+                        </div>
+                    </div>
+                    <div class="seeduc-toolbar">
+                        <span class="seeduc-badge">Turmas em acompanhamento</span>
+                    </div>
+
+                    <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaTurmasSaep">
+                        <thead>
+                            <tr>
+                                <th>Código da Turma</th>
+                                <th>Curso</th>
+                                <th>Data Fim</th>
+                                <th>SAEP Objetivo</th>
+                                <th>SAEP Prático</th>
+                                <th>Instrutor</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+
+                    <div id="painelSaepDetalhes" class="seeduc-card" style="display:none; margin-top: 20px;">
+                        <div class="seeduc-submenu">
+                            <button type="button" class="seeduc-submenu__item active" data-aba="plano" onclick="mostrarAbaSaep('plano')">Plano de ação</button>
+                            <button type="button" class="seeduc-submenu__item" data-aba="objetivos" onclick="mostrarAbaSaep('objetivos')">Simulados objetivos</button>
+                            <button type="button" class="seeduc-submenu__item" data-aba="praticos" onclick="mostrarAbaSaep('praticos')">Simulados práticos</button>
+                        </div>
+                        <div id="conteudoSaep" class="seeduc-relatorio"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modalCadastroSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalSaep">Cadastrar datas SAEP</h3>
+            <form id="formCadastroSaep" onsubmit="salvarDatasSaep(event)">
+                <input type="hidden" id="codigoTurmaSaepEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        SAEP Objetivo
+                        <input id="dataSaepObjetivo" type="date" required>
+                    </label>
+                    <label>
+                        SAEP Prático
+                        <input id="dataSaepPratico" type="date" required>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalCadastroSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAEP - Detalhes da turma</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="saep-detail-shell">
+        <aside class="saep-sidebar">
+            <div class="saep-sidebar__brand">
+                <strong>SAEP</strong>
+                <span>Gestão pedagógica</span>
+            </div>
+            <button type="button" class="saep-sidebar__item active" data-aba="resumo">Resumo</button>
+            <button type="button" class="saep-sidebar__item" data-aba="plano">Plano de Ação</button>
+            <button type="button" class="saep-sidebar__item" data-aba="objetivos">Simulados Objetivos</button>
+            <button type="button" class="saep-sidebar__item" data-aba="praticos">Simulados Práticos</button>
+            <button type="button" class="saep-sidebar__item" data-aba="historico">Histórico</button>
+            <button type="button" class="saep-sidebar__item" data-aba="registros">Registros</button>
+            <button type="button" class="saep-sidebar__item" data-aba="documentos">Documentos</button>
+        </aside>
+
+        <main class="saep-main">
+            <header class="saep-detail-header">
+                <div>
+                    <p class="saep-detail-kicker">SAEP · Detalhes da turma</p>
+                    <h1 id="saepDetalheTitulo">Turma</h1>
+                    <p id="saepDetalheSubtitulo" class="saep-detail-subtitle"></p>
+                </div>
+                <div class="saep-actions">
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnGerenciarRegistros">Gerenciar registros</button>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnEditarDataSaep">Cadastrar/editar SAEP</button>
+                </div>
+            </header>
+
+            <section id="saepSectionResumo" class="saep-section">
+                <div class="saep-grid saep-grid--2">
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Resumo pedagógico</h3>
+                            <span class="saep-badge">Em análise</span>
+                        </div>
+                        <div id="saepResumoCards" class="saep-metric-grid"></div>
+                    </div>
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Alertas</h3>
+                            <span class="saep-badge saep-badge--warning">Prioridade</span>
+                        </div>
+                        <div id="saepAlertas"></div>
+                    </div>
+                </div>
+
+                <div class="saep-grid saep-grid--2">
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Evolução das notas</h3>
+                        </div>
+                        <div id="saepGraficoNotas"></div>
+                    </div>
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Desempenho por capacidade</h3>
+                        </div>
+                        <div id="saepGraficoCapacidades"></div>
+                    </div>
+                </div>
+
+                <div class="saep-grid saep-grid--2">
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Distribuição da situação</h3>
+                        </div>
+                        <div id="saepGraficoSituacao"></div>
+                    </div>
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Andamento do plano de ação</h3>
+                        </div>
+                        <div id="saepGraficoPlano"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="saepSectionPlano" class="saep-section" style="display:none;">
+                <div class="saep-toolbar">
+                    <h2>Plano de Ação</h2>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAcao">Nova ação</button>
+                </div>
+                <div id="saepTabelaPlano"></div>
+            </section>
+
+            <section id="saepSectionObjetivos" class="saep-section" style="display:none;">
+                <div class="saep-toolbar">
+                    <h2>Simulados Objetivos</h2>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoObjetivo">Nova avaliação</button>
+                </div>
+                <div id="saepTabelaObjetivos"></div>
+            </section>
+
+            <section id="saepSectionPraticos" class="saep-section" style="display:none;">
+                <div class="saep-toolbar">
+                    <h2>Simulados Práticos</h2>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoPratico">Nova avaliação</button>
+                </div>
+                <div id="saepTabelaPraticos"></div>
+            </section>
+
+            <section id="saepSectionHistorico" class="saep-section" style="display:none;">
+                <div class="saep-card">
+                    <div class="saep-card__header">
+                        <h3>Histórico da turma</h3>
+                    </div>
+                    <div id="saepHistorico"></div>
+                </div>
+            </section>
+
+            <section id="saepSectionRegistros" class="saep-section" style="display:none;">
+                <div class="saep-toolbar">
+                    <h2>Registros</h2>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovoRegistroSaep">Novo registro</button>
+                </div>
+                <div id="saepListaRegistros"></div>
+            </section>
+
+            <section id="saepSectionDocumentos" class="saep-section" style="display:none;">
+                <div class="saep-card">
+                    <div class="saep-card__header">
+                        <h3>Documentos</h3>
+                    </div>
+                    <p class="saep-muted">Os anexos e documentos podem ser organizados aqui posteriormente.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modalCadastroSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalSaep">Cadastrar datas SAEP</h3>
+            <form id="formCadastroSaep" onsubmit="salvarDatasSaep(event)">
+                <input type="hidden" id="codigoTurmaSaepEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        SAEP Objetivo
+                        <input id="dataSaepObjetivo" type="date" required>
+                    </label>
+                    <label>
+                        SAEP Prático
+                        <input id="dataSaepPratico" type="date" required>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalCadastroSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalCadastroAcaoSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalAcaoSaep">Nova ação</h3>
+            <form id="formCadastroAcaoSaep" onsubmit="salvarAcaoSaep(event)">
+                <input type="hidden" id="acaoIdSaep" value="">
+                <input type="hidden" id="acaoTurmaSaep" value="">
+                <div class="form-grid">
+                    <label>
+                        Título
+                        <input id="acaoTituloSaep" type="text" required>
+                    </label>
+                    <label>
+                        Data
+                        <input id="acaoDataSaep" type="date" required>
+                    </label>
+                    <label>
+                        Responsável
+                        <input id="acaoResponsavelSaep" type="text" required>
+                    </label>
+                    <label>
+                        Status
+                        <select id="acaoStatusSaep">
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </label>
+                    <label class="saep-full-width">
+                        Descrição
+                        <textarea id="acaoDescricaoSaep" rows="4" required></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalAcaoSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalCadastroAvaliacaoSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalAvaliacaoSaep">Nova avaliação</h3>
+            <form id="formCadastroAvaliacaoSaep" onsubmit="salvarAvaliacaoSaep(event)">
+                <input type="hidden" id="avaliacaoIdSaep" value="">
+                <input type="hidden" id="avaliacaoTipoSaep" value="objetivo">
+                <input type="hidden" id="avaliacaoTurmaSaep" value="">
+                <div class="form-grid">
+                    <label>
+                        Data
+                        <input id="avaliacaoDataSaep" type="date" required>
+                    </label>
+                    <label>
+                        Nota média
+                        <input id="avaliacaoNotaSaep" type="number" step="0.1" min="0" max="10" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Observações
+                        <textarea id="avaliacaoObservacoesSaep" rows="3"></textarea>
+                    </label>
+                    <label class="saep-full-width">
+                        Alunos com baixo desempenho (um por linha: nome | nota | capacidades)
+                        <textarea id="avaliacaoAlunosSaep" rows="4" placeholder="Ex.: Ana | 5.0 | leitura, interpretação"></textarea>
+                    </label>
+                    <label class="saep-full-width">
+                        Capacidades avaliadas (uma por linha: capacidade | nota | crítica/atenção/adequada)
+                        <textarea id="avaliacaoCapacidadesSaep" rows="4" placeholder="Ex.: Compreensão leitora | 6.0 | atenção"></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalAvaliacaoSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalCadastroRegistroSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalRegistroSaep">Novo registro</h3>
+            <form id="formCadastroRegistroSaep" onsubmit="salvarRegistroSaep(event)">
+                <input type="hidden" id="registroIdSaep" value="">
+                <input type="hidden" id="registroTurmaSaep" value="">
+                <div class="form-grid">
+                    <label>
+                        Título
+                        <input id="registroTituloSaep" type="text" required>
+                    </label>
+                    <label>
+                        Tópico
+                        <input id="registroTopicoSaep" type="text" required>
+                    </label>
+                    <label>
+                        Data
+                        <input id="registroDataSaep" type="date" required>
+                    </label>
+                    <label>
+                        Status
+                        <select id="registroStatusSaep">
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </label>
+                    <label class="saep-full-width">
+                        Descrição
+                        <textarea id="registroDescricaoSaep" rows="4" required></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalRegistroSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

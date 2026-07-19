@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhamento Pedagógico</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="o-container__turmas">Turmas em Andamento</h2>
+                            <p class="panel-subtitle">Acompanhe, edite e finalize as turmas em execução.</p>
+                        </div>
+                        <button type="button" onclick="abrirModalCadastro()" class="o-container__turmas__cadastrar">Cadastrar Turmas</button>
+                    </div>
+
+                    <table class="o-container__turmas__cadastrar__tabela">
+                        <thead>
+                            <tr>
+                                <th>Código da Turma</th>
+                                <th>Nome Reduzido</th>
+                                <th>Curso</th>
+                                <th>Data Início</th>
+                                <th>Data Fim</th>
+                                <th>Instrutor</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpotablecadastrodeTurmas"></tbody>
+                    </table>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modalCadastroTurma" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="modalTitulo">Cadastrar turma</h3>
+            <form id="formCadastroTurma" onsubmit="cadastrarTurmas(event)">
+                <input type="hidden" id="indiceTurmaEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        Código da Turma
+                        <input id="codigoTurma" type="text" required>
+                    </label>
+                    <label>
+                        Nome Reduzido
+                        <input id="nomeReduzido" type="text" required>
+                    </label>
+                    <label>
+                        Curso
+                        <input id="curso" type="text" required>
+                    </label>
+                    <label>
+                        Nome do Instrutor
+                        <input id="instrutor" type="text" required>
+                    </label>
+                    <label>
+                        Data Início
+                        <input id="dataInicio" type="date" required>
+                    </label>
+                    <label>
+                        Data Fim
+                        <input id="dataFim" type="date" required>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="btnSalvarTurma" class="btn-primary">Cadastrar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalCadastro()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
