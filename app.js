@@ -114,20 +114,14 @@ function aplicarPayloadSyncRemoto(payload) {
     }
 
     const chavesRemotas = Object.keys(payload.keys);
-    const chavesLocais = listarChavesSincronizaveis();
-
-    chavesLocais.forEach((chave) => {
-        if (!chavesRemotas.includes(chave)) {
-            localStorage.removeItem(chave);
-        }
-    });
 
     chavesRemotas.forEach((chave) => {
         localStorage.setItem(chave, JSON.stringify(payload.keys[chave]));
     });
 
-    salvarRegistroSyncLocal(chavesRemotas);
-    APP_SYNC_STATE.lastSerializedPayload = JSON.stringify(payload.keys);
+    const chavesMescladas = Array.from(new Set([...listarChavesSincronizaveis(), ...chavesRemotas]));
+    salvarRegistroSyncLocal(chavesMescladas);
+    APP_SYNC_STATE.lastSerializedPayload = JSON.stringify(obterPayloadSyncLocal().keys);
     return true;
 }
 
