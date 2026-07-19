@@ -40,16 +40,18 @@
                     <div class="occurrence-layout">
                         <div class="occurrence-list">
                             <h3>Turmas</h3>
-                            <table class="o-container__turmas__cadastrar__tabela">
-                                <thead>
-                                    <tr>
-                                        <th>Código da Turma</th>
-                                        <th>Curso</th>
-                                        <th>Instrutor</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabelaTurmasOcorrencia"></tbody>
-                            </table>
+                            <div class="table-scroll">
+                                <table class="o-container__turmas__cadastrar__tabela">
+                                    <thead>
+                                        <tr>
+                                            <th>Código da Turma</th>
+                                            <th>Curso</th>
+                                            <th>Instrutor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaTurmasOcorrencia"></tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div class="occurrence-detail">
@@ -64,6 +66,7 @@
         </div>
     </div>
 
+    <script src="sync-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -45,22 +45,24 @@
 
                     <div id="conteudoSeeduc" class="seeduc-relatorio"></div>
 
-                    <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaSeeducBase" style="display:none;">
-                        <thead>
-                            <tr>
-                                <th>Município</th>
-                                <th>Escola</th>
-                                <th>Código da Turma</th>
-                                <th>Data Início</th>
-                                <th>Data Fim</th>
-                                <th>Instrutor</th>
-                                <th>SGE</th>
-                                <th>Observações</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabelaSeeduc"></tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaSeeducBase" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th>Município</th>
+                                    <th>Escola</th>
+                                    <th>Código da Turma</th>
+                                    <th>Data Início</th>
+                                    <th>Data Fim</th>
+                                    <th>Instrutor</th>
+                                    <th>SGE</th>
+                                    <th>Observações</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaSeeduc"></tbody>
+                        </table>
+                    </div>
 
                 </section>
             </main>
@@ -107,6 +109,7 @@
         </div>
     </div>
 
+    <script src="sync-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

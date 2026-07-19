@@ -40,19 +40,21 @@
                         <span class="seeduc-badge">Turmas em acompanhamento</span>
                     </div>
 
-                    <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaTurmasSaep">
-                        <thead>
-                            <tr>
-                                <th>Código da Turma</th>
-                                <th>Curso</th>
-                                <th>Data Fim</th>
-                                <th>SAEP Objetivo</th>
-                                <th>SAEP Prático</th>
-                                <th>Instrutor</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaTurmasSaep">
+                            <thead>
+                                <tr>
+                                    <th>Código da Turma</th>
+                                    <th>Curso</th>
+                                    <th>Data Fim</th>
+                                    <th>SAEP Objetivo</th>
+                                    <th>SAEP Prático</th>
+                                    <th>Instrutor</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
 
                     <div id="painelSaepDetalhes" class="seeduc-card" style="display:none; margin-top: 20px;">
                         <div class="seeduc-submenu">
@@ -91,6 +93,7 @@
         </div>
     </div>
 
+    <script src="sync-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

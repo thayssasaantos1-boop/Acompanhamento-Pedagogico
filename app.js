@@ -2,6 +2,256 @@ const STORAGE_KEY = "turmasCadastradas";
 const STORAGE_KEY_FINALIZADAS = "turmasFinalizadas";
 const STORAGE_KEY_OCORRENCIAS = "ocorrenciasPedagogicas";
 const STORAGE_KEY_ALUNOS = "alunosPorTurma";
+const STORAGE_SYNC_REGISTRY_KEY = "__acompanhamentoSyncRegistry__";
+const STORAGE_SYNC_STATIC_KEYS = [
+    STORAGE_KEY,
+    STORAGE_KEY_FINALIZADAS,
+    "seeducTurmas",
+    "seeducRegistros",
+    "saepDatas",
+    "saepAcoes",
+    "saepAvaliacoesObjetivo",
+    "saepAvaliacoesPratico",
+    "saepRegistros"
+];
+const STORAGE_SYNC_PREFIXES = [
+    `${STORAGE_KEY_ALUNOS}_`,
+    `${STORAGE_KEY_OCORRENCIAS}_`
+];
+const APP_SYNC_CONFIG = window.APP_SYNC_CONFIG || {};
+const APP_SYNC_STATE = {
+    enabled: Boolean(APP_SYNC_CONFIG.enabled && APP_SYNC_CONFIG.databaseURL),
+    initialized: false,
+    lastSerializedPayload: "",
+    pendingTimeout: null,
+    isSyncing: false
+};
+
+function normalizarUrlSync(url) {
+    return (url || "").replace(/\/+$/, "");
+}
+
+function obterUrlSyncRemoto() {
+    if (!APP_SYNC_STATE.enabled) {
+        return "";
+    }
+
+    const databaseURL = normalizarUrlSync(APP_SYNC_CONFIG.databaseURL);
+    const namespace = (APP_SYNC_CONFIG.namespace || "acompanhamento-pedagogico").replace(/^\/+|\/+$/g, "");
+    return `${databaseURL}/${namespace}.json`;
+}
+
+function carregarRegistroSyncLocal() {
+    const dados = localStorage.getItem(STORAGE_SYNC_REGISTRY_KEY);
+
+    if (!dados) {
+        return [];
+    }
+
+    try {
+        const chaves = JSON.parse(dados);
+        return Array.isArray(chaves) ? chaves : [];
+    } catch (error) {
+        console.error("Erro ao carregar o registro de sincronização:", error);
+        return [];
+    }
+}
+
+function salvarRegistroSyncLocal(chaves) {
+    const unicas = Array.from(new Set(chaves.filter(Boolean))).sort();
+    localStorage.setItem(STORAGE_SYNC_REGISTRY_KEY, JSON.stringify(unicas));
+}
+
+function registrarChaveParaSync(storageKey) {
+    if (!storageKey) {
+        return;
+    }
+
+    const chaves = new Set([...STORAGE_SYNC_STATIC_KEYS, ...carregarRegistroSyncLocal()]);
+    chaves.add(storageKey);
+    salvarRegistroSyncLocal(Array.from(chaves));
+}
+
+function listarChavesSincronizaveis() {
+    const chaves = new Set([...STORAGE_SYNC_STATIC_KEYS, ...carregarRegistroSyncLocal()]);
+
+    Object.keys(localStorage).forEach((chave) => {
+        if (STORAGE_SYNC_PREFIXES.some((prefixo) => chave.startsWith(prefixo))) {
+            chaves.add(chave);
+        }
+    });
+
+    chaves.delete(STORAGE_SYNC_REGISTRY_KEY);
+    return Array.from(chaves);
+}
+
+function obterPayloadSyncLocal() {
+    const dados = {};
+
+    listarChavesSincronizaveis().forEach((chave) => {
+        const valorCru = localStorage.getItem(chave);
+
+        if (valorCru === null) {
+            return;
+        }
+
+        try {
+            dados[chave] = JSON.parse(valorCru);
+        } catch (error) {
+            dados[chave] = valorCru;
+        }
+    });
+
+    return {
+        updatedAt: new Date().toISOString(),
+        keys: dados
+    };
+}
+
+function aplicarPayloadSyncRemoto(payload) {
+    if (!payload || typeof payload !== "object" || !payload.keys || typeof payload.keys !== "object") {
+        return false;
+    }
+
+    const chavesRemotas = Object.keys(payload.keys);
+    const chavesLocais = listarChavesSincronizaveis();
+
+    chavesLocais.forEach((chave) => {
+        if (!chavesRemotas.includes(chave)) {
+            localStorage.removeItem(chave);
+        }
+    });
+
+    chavesRemotas.forEach((chave) => {
+        localStorage.setItem(chave, JSON.stringify(payload.keys[chave]));
+    });
+
+    salvarRegistroSyncLocal(chavesRemotas);
+    APP_SYNC_STATE.lastSerializedPayload = JSON.stringify(payload.keys);
+    return true;
+}
+
+async function baixarDadosRemotos() {
+    const url = obterUrlSyncRemoto();
+
+    if (!url) {
+        return false;
+    }
+
+    const resposta = await fetch(url, { cache: "no-store" });
+
+    if (!resposta.ok) {
+        throw new Error(`Falha ao carregar dados remotos (${resposta.status}).`);
+    }
+
+    const payload = await resposta.json();
+
+    if (!payload || !payload.keys) {
+        return false;
+    }
+
+    return aplicarPayloadSyncRemoto(payload);
+}
+
+async function enviarDadosRemotos() {
+    const url = obterUrlSyncRemoto();
+
+    if (!url) {
+        return false;
+    }
+
+    const payload = obterPayloadSyncLocal();
+    const payloadSerializado = JSON.stringify(payload.keys);
+
+    if (payloadSerializado === APP_SYNC_STATE.lastSerializedPayload) {
+        return false;
+    }
+
+    const resposta = await fetch(url, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!resposta.ok) {
+        throw new Error(`Falha ao enviar dados remotos (${resposta.status}).`);
+    }
+
+    APP_SYNC_STATE.lastSerializedPayload = payloadSerializado;
+    return true;
+}
+
+async function sincronizarComRemoto(modo = "bidirecional") {
+    if (!APP_SYNC_STATE.enabled || APP_SYNC_STATE.isSyncing) {
+        return;
+    }
+
+    APP_SYNC_STATE.isSyncing = true;
+
+    try {
+        if (modo !== "push") {
+            const aplicouRemoto = await baixarDadosRemotos();
+            if (aplicouRemoto) {
+                renderizarPaginaAtual();
+
+                if (window.location.pathname.toLowerCase().includes("saepdetalhes")) {
+                    renderizarDetalhesSaep();
+                }
+            }
+        }
+
+        if (modo !== "pull") {
+            await enviarDadosRemotos();
+        }
+    } catch (error) {
+        console.error("Erro na sincronização remota:", error);
+    } finally {
+        APP_SYNC_STATE.isSyncing = false;
+    }
+}
+
+function agendarSincronizacaoRemota() {
+    if (!APP_SYNC_STATE.enabled) {
+        return;
+    }
+
+    window.clearTimeout(APP_SYNC_STATE.pendingTimeout);
+    APP_SYNC_STATE.pendingTimeout = window.setTimeout(() => {
+        sincronizarComRemoto("push");
+    }, 500);
+}
+
+async function inicializarSincronizacaoRemota() {
+    if (!APP_SYNC_STATE.enabled || APP_SYNC_STATE.initialized) {
+        return;
+    }
+
+    APP_SYNC_STATE.initialized = true;
+
+    try {
+        const houveDadosRemotos = await baixarDadosRemotos();
+
+        if (!houveDadosRemotos && listarChavesSincronizaveis().some((chave) => localStorage.getItem(chave) !== null)) {
+            await enviarDadosRemotos();
+        }
+    } catch (error) {
+        console.error("Erro ao inicializar a sincronização remota:", error);
+    }
+
+    window.addEventListener("online", () => sincronizarComRemoto("bidirecional"));
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            sincronizarComRemoto("pull");
+        }
+    });
+    window.setInterval(() => {
+        if (!document.hidden) {
+            sincronizarComRemoto("pull");
+        }
+    }, 30000);
+}
 
 function formatarDataParaExibir(data) {
     if (!data) {
@@ -109,7 +359,9 @@ function fecharModalCadastro() {
 }
 
 function salvarTurmasNoStorage(turmas, storageKey = STORAGE_KEY) {
+    registrarChaveParaSync(storageKey);
     localStorage.setItem(storageKey, JSON.stringify(turmas));
+    agendarSincronizacaoRemota();
 }
 
 function carregarTurmasDoStorage(storageKey = STORAGE_KEY) {
@@ -527,18 +779,20 @@ function mostrarRelatorioSeeduc(mes) {
             <button type="button" class="seeduc-submenu__item ${mes === "setembro" ? "active" : ""}" onclick="mostrarRelatorioSeeduc('setembro')">Setembro</button>
             <button type="button" class="seeduc-submenu__item ${mes === "outubro" ? "active" : ""}" onclick="mostrarRelatorioSeeduc('outubro')">Outubro</button>
         </div>
-        <table class="o-container__turmas__cadastrar__tabela seeduc-table">
-            <thead>
-                <tr>
-                    <th>Município</th>
-                    <th>Escola</th>
-                    <th>Código da Turma</th>
-                    <th>Instrutor</th>
-                    ${colunasExtras.map((coluna) => `<th>${coluna}</th>`).join("")}
-                </tr>
-            </thead>
-            <tbody>${linhas}</tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Município</th>
+                        <th>Escola</th>
+                        <th>Código da Turma</th>
+                        <th>Instrutor</th>
+                        ${colunasExtras.map((coluna) => `<th>${coluna}</th>`).join("")}
+                    </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+            </table>
+        </div>
     `;
 
     container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
@@ -908,31 +1162,33 @@ function renderizarTabelaPlanoSaep(codigoTurma) {
     }
 
     container.innerHTML = `
-        <table class="o-container__turmas__cadastrar__tabela seeduc-table">
-            <thead>
-                <tr>
-                    <th>Título</th>
-                    <th>Data</th>
-                    <th>Responsável</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${acoes.length === 0 ? '<tr><td colspan="5">Nenhuma ação cadastrada.</td></tr>' : acoes.map((acao) => `
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
                     <tr>
-                        <td>${acao.titulo}</td>
-                        <td>${formatarDataParaExibirSaep(acao.data)}</td>
-                        <td>${acao.responsavel}</td>
-                        <td>${acao.status}</td>
-                        <td>
-                            <button class="btn-edit" onclick="abrirModalAcaoSaep('${acao.id}')">✏️</button>
-                            <button class="btn-delete" onclick="excluirAcaoSaep('${acao.id}')">🗑️</button>
-                        </td>
+                        <th>Título</th>
+                        <th>Data</th>
+                        <th>Responsável</th>
+                        <th>Status</th>
+                        <th>Ações</th>
                     </tr>
-                `).join("")}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    ${acoes.length === 0 ? '<tr><td colspan="5">Nenhuma ação cadastrada.</td></tr>' : acoes.map((acao) => `
+                        <tr>
+                            <td>${acao.titulo}</td>
+                            <td>${formatarDataParaExibirSaep(acao.data)}</td>
+                            <td>${acao.responsavel}</td>
+                            <td>${acao.status}</td>
+                            <td>
+                                <button class="btn-edit" onclick="abrirModalAcaoSaep('${acao.id}')">✏️</button>
+                                <button class="btn-delete" onclick="excluirAcaoSaep('${acao.id}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
     `;
 }
 
@@ -1104,28 +1360,30 @@ function renderizarTabelaAvaliacoesSaep(codigoTurma, tipo) {
     }
 
     container.innerHTML = `
-        <table class="o-container__turmas__cadastrar__tabela seeduc-table">
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Nota média</th>
-                    <th>Observações</th>
-                    <th>Alunos com baixo desempenho</th>
-                    <th>Capacidades avaliadas</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${avaliacoes.length === 0 ? '<tr><td colspan="5">Nenhuma avaliação cadastrada.</td></tr>' : avaliacoes.map((avaliacao) => `
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
                     <tr>
-                        <td>${formatarDataParaExibirSaep(avaliacao.data)}</td>
-                        <td>${avaliacao.notaMedia}</td>
-                        <td>${avaliacao.observacoes || "-"}</td>
-                        <td>${(avaliacao.alunosBaixoDesempenho || []).map((aluno) => `${aluno.nome} (${aluno.nota})`).join("<br>") || "-"}</td>
-                        <td>${(avaliacao.capacidades || []).map((cap) => `${cap.capacidade} · ${cap.nota} · ${cap.situacao}`).join("<br>") || "-"}</td>
+                        <th>Data</th>
+                        <th>Nota média</th>
+                        <th>Observações</th>
+                        <th>Alunos com baixo desempenho</th>
+                        <th>Capacidades avaliadas</th>
                     </tr>
-                `).join("")}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    ${avaliacoes.length === 0 ? '<tr><td colspan="5">Nenhuma avaliação cadastrada.</td></tr>' : avaliacoes.map((avaliacao) => `
+                        <tr>
+                            <td>${formatarDataParaExibirSaep(avaliacao.data)}</td>
+                            <td>${avaliacao.notaMedia}</td>
+                            <td>${avaliacao.observacoes || "-"}</td>
+                            <td>${(avaliacao.alunosBaixoDesempenho || []).map((aluno) => `${aluno.nome} (${aluno.nota})`).join("<br>") || "-"}</td>
+                            <td>${(avaliacao.capacidades || []).map((cap) => `${cap.capacidade} · ${cap.nota} · ${cap.situacao}`).join("<br>") || "-"}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
     `;
 }
 
@@ -1553,7 +1811,8 @@ function salvarOcorrencia() {
     renderizarDetalhesTurmaNaPagina();
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
+    await inicializarSincronizacaoRemota();
     renderizarPaginaAtual();
 
     if (document.getElementById("conteudoSeeduc")) {

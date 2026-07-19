@@ -9,6 +9,11 @@ body {
     min-height: 100vh;
     background: #f3f6fb;
     color: #14213d;
+    overflow-x: hidden;
+}
+
+img {
+    max-width: 100%;
 }
 
 .app-shell {
@@ -119,6 +124,12 @@ body {
     font-size: 0.95rem;
 }
 
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .o-container__turmas__cadastrar__tabela th,
 .o-container__turmas__cadastrar__tabela td {
     padding: 0.8rem;
@@ -187,6 +198,7 @@ body {
     border-radius: 10px;
     padding: 0.7rem 0.8rem;
     font-family: inherit;
+    font-size: 16px;
 }
 
 .form-actions {
@@ -542,6 +554,64 @@ body {
 
     .o-menu {
         width: 100%;
+        padding: 0.85rem;
+    }
+
+    .o-menu__section {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0.55rem;
+        padding-bottom: 0.15rem;
+    }
+
+    .o-menu__section a {
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    .o-header,
+    .o-container,
+    .saep-main {
+        padding: 1rem;
+    }
+
+    .panel,
+    .saep-card,
+    .modal-content {
+        padding: 1rem;
+    }
+
+    .panel-header,
+    .seeduc-toolbar,
+    .saep-toolbar,
+    .form-actions,
+    .student-card__header,
+    .saep-detail-header,
+    .saep-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .header-title {
+        align-items: flex-start;
+    }
+
+    .o-container__turmas__cadastrar,
+    .btn-primary,
+    .btn-secondary,
+    .student-card__button {
+        width: 100%;
+    }
+
+    .o-container__turmas__cadastrar__tabela {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .seeduc-table .obs-cell {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .form-grid {
@@ -558,14 +628,14 @@ body {
 
     .saep-sidebar {
         width: 100%;
+        overflow-x: auto;
     }
 
     .saep-grid--2 {
         grid-template-columns: 1fr;
     }
 
-    .saep-detail-header {
-        flex-direction: column;
-        align-items: flex-start;
+    .saep-metric-grid {
+        grid-template-columns: 1fr;
     }
 }
