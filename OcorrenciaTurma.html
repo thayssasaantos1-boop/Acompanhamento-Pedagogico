@@ -69,29 +69,12 @@
                 </label>
             </div>
 
-            <div class="form-actions">
-                <button type="button" id="btnConfigGeminiOcorrencia" class="btn-secondary" title="Configurar API Key Gemini">⚙️ IA</button>
+            <div class="form-actions form-actions--ocorrencia">
                 <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão</button>
-                <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
-                <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modalConfigGeminiOcorrencia" class="modal-cadastro" aria-hidden="true">
-        <div class="modal-content">
-            <h3>Configuração da IA (Gemini)</h3>
-            <p class="panel-subtitle">A chave é salva somente nesta sessão (sessionStorage).</p>
-            <div class="form-grid">
-                <label class="saep-full-width">
-                    API Key do Gemini
-                    <input id="geminiApiKeyOcorrencia" type="password" placeholder="Cole sua API Key...">
-                </label>
-            </div>
-            <div class="form-actions">
-                <button type="button" id="btnSalvarConfigGeminiOcorrencia" class="btn-primary">Salvar chave</button>
-                <button type="button" id="btnLimparConfigGeminiOcorrencia" class="btn-secondary">Limpar chave</button>
-                <button type="button" id="btnFecharConfigGeminiOcorrencia" class="btn-secondary">Fechar</button>
+                <div class="form-actions__right">
+                    <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
+                </div>
             </div>
         </div>
     </div>

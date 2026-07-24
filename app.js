@@ -33,6 +33,7 @@ const SAEP_IMPORT_STORAGE_KEY = "saepSimuladosExcel";
 const SAEP_PLATAFORMAS_STORAGE_KEY = "saepPlataformasDados";
 const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
+const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
 const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
 const SAEP_ABAS_OBRIGATORIAS = [
     "D. por Competência - Cruzamento",
@@ -2888,73 +2889,31 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "") {
         botaoGerar.onclick = gerarSugestaoTexto;
     }
 
-    const botaoConfigGemini = document.getElementById("btnConfigGeminiOcorrencia");
-    if (botaoConfigGemini) {
-        botaoConfigGemini.onclick = abrirModalConfigGeminiOcorrencia;
-    }
-
     const botaoSalvar = document.getElementById("salvarOcorrencia");
     if (botaoSalvar) {
         botaoSalvar.onclick = salvarOcorrencia;
     }
 }
 
-function abrirModalConfigGeminiOcorrencia() {
-    const modal = document.getElementById("modalConfigGeminiOcorrencia");
-    const input = document.getElementById("geminiApiKeyOcorrencia");
-
-    if (input) {
-        input.value = sessionStorage.getItem(GEMINI_KEY_SESSION_STORAGE) || "";
+function obterApiKeyGeminiOcorrencia() {
+    const chaveSessao = (sessionStorage.getItem(GEMINI_KEY_SESSION_STORAGE) || "").trim();
+    if (chaveSessao) {
+        return chaveSessao;
     }
 
-    if (modal) {
-        modal.classList.add("active");
-        modal.setAttribute("aria-hidden", "false");
+    const chaveLocal = (localStorage.getItem(GEMINI_KEY_LOCAL_STORAGE) || "").trim();
+    if (chaveLocal) {
+        return chaveLocal;
     }
 
-    const botaoSalvar = document.getElementById("btnSalvarConfigGeminiOcorrencia");
-    if (botaoSalvar) {
-        botaoSalvar.onclick = () => {
-            const valor = (input?.value || "").trim();
-            if (!valor) {
-                alert("Informe uma API Key válida.");
-                return;
-            }
-            sessionStorage.setItem(GEMINI_KEY_SESSION_STORAGE, valor);
-            alert("API Key salva nesta sessão.");
-            fecharModalConfigGeminiOcorrencia();
-        };
-    }
-
-    const botaoLimpar = document.getElementById("btnLimparConfigGeminiOcorrencia");
-    if (botaoLimpar) {
-        botaoLimpar.onclick = () => {
-            sessionStorage.removeItem(GEMINI_KEY_SESSION_STORAGE);
-            if (input) {
-                input.value = "";
-            }
-            alert("API Key removida da sessão.");
-        };
-    }
-
-    const botaoFechar = document.getElementById("btnFecharConfigGeminiOcorrencia");
-    if (botaoFechar) {
-        botaoFechar.onclick = fecharModalConfigGeminiOcorrencia;
-    }
-}
-
-function fecharModalConfigGeminiOcorrencia() {
-    const modal = document.getElementById("modalConfigGeminiOcorrencia");
-    if (modal) {
-        modal.classList.remove("active");
-        modal.setAttribute("aria-hidden", "true");
-    }
+    const chaveConfig = (APP_SYNC_CONFIG.geminiApiKey || "").trim();
+    return chaveConfig;
 }
 
 async function gerarSugestaoTextoComGemini(promptUsuario) {
-    const apiKey = sessionStorage.getItem(GEMINI_KEY_SESSION_STORAGE);
+    const apiKey = obterApiKeyGeminiOcorrencia();
     if (!apiKey) {
-        throw new Error("API Key do Gemini não configurada.");
+        throw new Error("API Key do Gemini não configurada. Defina APP_SYNC_CONFIG.geminiApiKey em sync-config.js.");
     }
 
     const resposta = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
@@ -3035,7 +2994,7 @@ async function gerarSugestaoTexto() {
 
     assistido.value = "Gerando sugestão com IA...";
 
-    const promptUsuario = `Dados da ocorrência:\nAluno: ${nomeAluno || "não informado"}\nTipo: ${tipo}\nTexto original da descrição: ${descricao}\n\nSolicitação obrigatória: reescrever o texto original com correção gramatical, melhor coesão e tom pedagógico-profissional, preservando todos os fatos citados no original. Não resumir, não reduzir para tópicos e não inventar fatos.`;
+    const promptUsuario = `Texto original da descrição da ocorrência:\n${descricao}\n\nContexto adicional:\nAluno: ${nomeAluno || "não informado"}\nTipo: ${tipo}\n\nSolicitação obrigatória: formalize pedagogicamente o texto acima, com correção gramatical, clareza e coesão. Preserve integralmente os fatos já descritos, sem resumo, sem listas e sem inventar informações.`;
 
     try {
         const respostaIa = await gerarSugestaoTextoComGemini(promptUsuario);
@@ -3047,7 +3006,7 @@ async function gerarSugestaoTexto() {
         console.warn("Falha ao gerar sugestão com Gemini:", error);
     }
 
-    assistido.value = `Ocorrência do tipo ${tipo} envolvendo ${nomeAluno || "o aluno"}: ${descricao}. Recomenda-se acompanhamento pedagógico com registro de orientações, alinhamento de expectativas e monitoramento contínuo da evolução do estudante.`;
+    assistido.value = `Descrição formalizada (${tipo}) para ${nomeAluno || "o aluno"}: ${descricao}.`;
 }
 
 function salvarOcorrencia() {
@@ -3109,12 +3068,4 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    const modalConfigGeminiOcorrencia = document.getElementById("modalConfigGeminiOcorrencia");
-    if (modalConfigGeminiOcorrencia) {
-        modalConfigGeminiOcorrencia.addEventListener("click", (event) => {
-            if (event.target === modalConfigGeminiOcorrencia) {
-                fecharModalConfigGeminiOcorrencia();
-            }
-        });
-    }
 });
