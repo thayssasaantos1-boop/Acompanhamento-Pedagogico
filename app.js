@@ -32,6 +32,8 @@ const APP_SYNC_STATE = {
 const SAEP_IMPORT_STORAGE_KEY = "saepSimuladosExcel";
 const SAEP_PLATAFORMAS_STORAGE_KEY = "saepPlataformasDados";
 const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
+const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
+const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
 const SAEP_ABAS_OBRIGATORIAS = [
     "D. por Competência - Cruzamento",
     "D. por Competência - Itens",
@@ -2745,7 +2747,9 @@ function mostrarAbaSaep(aba, turmaSelecionada = null) {
 }
 
 function renderizarDetalhesTurmaNaPagina() {
-    const codigoTurma = new URLSearchParams(window.location.search).get("turma");
+    const codigoTurmaParam = new URLSearchParams(window.location.search).get("turma");
+    const codigoTurmaSalvo = sessionStorage.getItem(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE);
+    const codigoTurma = (codigoTurmaParam || codigoTurmaSalvo || "").trim();
     const titulo = document.getElementById("tituloTurmaOcorrencia");
     const dadosTurma = document.getElementById("dadosTurmaOcorrencia");
     const containerAlunos = document.getElementById("listaAlunosOcorrencia");
@@ -2763,7 +2767,9 @@ function renderizarDetalhesTurmaNaPagina() {
         return;
     }
 
-    const turma = carregarTurmasDoStorage(STORAGE_KEY).find((item) => item.codigoTurma === codigoTurma);
+    sessionStorage.setItem(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE, codigoTurma);
+
+    const turma = obterTurmaPorCodigo(codigoTurma);
     if (!turma) {
         titulo.textContent = "Turma não encontrada";
         dadosTurma.textContent = "A turma selecionada não está mais disponível.";
@@ -2882,10 +2888,103 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "") {
         botaoGerar.onclick = gerarSugestaoTexto;
     }
 
+    const botaoConfigGemini = document.getElementById("btnConfigGeminiOcorrencia");
+    if (botaoConfigGemini) {
+        botaoConfigGemini.onclick = abrirModalConfigGeminiOcorrencia;
+    }
+
     const botaoSalvar = document.getElementById("salvarOcorrencia");
     if (botaoSalvar) {
         botaoSalvar.onclick = salvarOcorrencia;
     }
+}
+
+function abrirModalConfigGeminiOcorrencia() {
+    const modal = document.getElementById("modalConfigGeminiOcorrencia");
+    const input = document.getElementById("geminiApiKeyOcorrencia");
+
+    if (input) {
+        input.value = sessionStorage.getItem(GEMINI_KEY_SESSION_STORAGE) || "";
+    }
+
+    if (modal) {
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+    }
+
+    const botaoSalvar = document.getElementById("btnSalvarConfigGeminiOcorrencia");
+    if (botaoSalvar) {
+        botaoSalvar.onclick = () => {
+            const valor = (input?.value || "").trim();
+            if (!valor) {
+                alert("Informe uma API Key válida.");
+                return;
+            }
+            sessionStorage.setItem(GEMINI_KEY_SESSION_STORAGE, valor);
+            alert("API Key salva nesta sessão.");
+            fecharModalConfigGeminiOcorrencia();
+        };
+    }
+
+    const botaoLimpar = document.getElementById("btnLimparConfigGeminiOcorrencia");
+    if (botaoLimpar) {
+        botaoLimpar.onclick = () => {
+            sessionStorage.removeItem(GEMINI_KEY_SESSION_STORAGE);
+            if (input) {
+                input.value = "";
+            }
+            alert("API Key removida da sessão.");
+        };
+    }
+
+    const botaoFechar = document.getElementById("btnFecharConfigGeminiOcorrencia");
+    if (botaoFechar) {
+        botaoFechar.onclick = fecharModalConfigGeminiOcorrencia;
+    }
+}
+
+function fecharModalConfigGeminiOcorrencia() {
+    const modal = document.getElementById("modalConfigGeminiOcorrencia");
+    if (modal) {
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
+    }
+}
+
+async function gerarSugestaoTextoComGemini(promptUsuario) {
+    const apiKey = sessionStorage.getItem(GEMINI_KEY_SESSION_STORAGE);
+    if (!apiKey) {
+        throw new Error("API Key do Gemini não configurada.");
+    }
+
+    const resposta = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            system_instruction: {
+                parts: [{
+                    text: "Você é um assistente pedagógico. Reescreva ocorrências com linguagem clara, respeitosa e orientada para intervenção educacional."
+                }]
+            },
+            contents: [{
+                role: "user",
+                parts: [{ text: promptUsuario }]
+            }],
+            generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: 280
+            }
+        })
+    });
+
+    if (!resposta.ok) {
+        throw new Error(`Falha ao consultar Gemini (${resposta.status}).`);
+    }
+
+    const dados = await resposta.json();
+    return dados?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 }
 
 function fecharModalOcorrencia() {
@@ -2895,22 +2994,59 @@ function fecharModalOcorrencia() {
         modal.setAttribute("aria-hidden", "true");
     }
 
-    document.getElementById("codigoTurmaOcorrencia").value = "";
-    document.getElementById("alunoOcorrencia").value = "";
-    document.getElementById("nomeAlunoOcorrencia").value = "";
-    document.getElementById("descricaoOcorrencia").value = "";
-    document.getElementById("textoAssistido").value = "";
+    const codigo = document.getElementById("codigoTurmaOcorrencia");
+    const aluno = document.getElementById("alunoOcorrencia");
+    const nome = document.getElementById("nomeAlunoOcorrencia");
+    const descricao = document.getElementById("descricaoOcorrencia");
+    const textoAssistido = document.getElementById("textoAssistido");
+
+    if (codigo) {
+        codigo.value = "";
+    }
+    if (aluno) {
+        aluno.value = "";
+    }
+    if (nome) {
+        nome.value = "";
+    }
+    if (descricao) {
+        descricao.value = "";
+    }
+    if (textoAssistido) {
+        textoAssistido.value = "";
+    }
 }
 
-function gerarSugestaoTexto() {
+async function gerarSugestaoTexto() {
     const nomeAluno = document.getElementById("nomeAlunoOcorrencia").value.trim() || document.getElementById("alunoOcorrencia").value.trim();
     const tipo = document.getElementById("tipoOcorrencia").value;
     const descricao = document.getElementById("descricaoOcorrencia").value.trim();
     const assistido = document.getElementById("textoAssistido");
 
-    if (assistido) {
-        assistido.value = `Ocorrência ${tipo} registrada para ${nomeAluno || "o aluno"}. ${descricao ? "Detalhes: " + descricao : "Descreva o contexto para complementar a situação."}`;
+    if (!assistido) {
+        return;
     }
+
+    if (!descricao) {
+        assistido.value = "Descreva primeiro o contexto da ocorrência para gerar uma sugestão útil.";
+        return;
+    }
+
+    assistido.value = "Gerando sugestão com IA...";
+
+    const promptUsuario = `Aluno: ${nomeAluno || "não informado"}\nTipo de ocorrência: ${tipo}\nDescrição: ${descricao}\nSolicitação: gerar um texto de ocorrência pedagógica com encaminhamento.`;
+
+    try {
+        const respostaIa = await gerarSugestaoTextoComGemini(promptUsuario);
+        if (respostaIa) {
+            assistido.value = respostaIa;
+            return;
+        }
+    } catch (error) {
+        console.warn("Falha ao gerar sugestão com Gemini:", error);
+    }
+
+    assistido.value = `Ocorrência ${tipo} registrada para ${nomeAluno || "o aluno"}. Contexto: ${descricao}. Encaminhamento sugerido: acolher o estudante, pactuar metas objetivas e acompanhar a evolução nas próximas aulas.`;
 }
 
 function salvarOcorrencia() {
@@ -2968,6 +3104,15 @@ window.addEventListener("DOMContentLoaded", async () => {
         modalConsultaFinalizada.addEventListener("click", (event) => {
             if (event.target === modalConsultaFinalizada) {
                 fecharModalConsultaTurmaFinalizada();
+            }
+        });
+    }
+
+    const modalConfigGeminiOcorrencia = document.getElementById("modalConfigGeminiOcorrencia");
+    if (modalConfigGeminiOcorrencia) {
+        modalConfigGeminiOcorrencia.addEventListener("click", (event) => {
+            if (event.target === modalConfigGeminiOcorrencia) {
+                fecharModalConfigGeminiOcorrencia();
             }
         });
     }
