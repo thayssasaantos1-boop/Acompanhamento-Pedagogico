@@ -19,8 +19,7 @@
             <button type="button" class="saep-sidebar__item" data-aba="objetivos">Simulados Objetivos</button>
             <button type="button" class="saep-sidebar__item" data-aba="praticos">Simulados Práticos</button>
             <button type="button" class="saep-sidebar__item" data-aba="historico">Histórico</button>
-            <button type="button" class="saep-sidebar__item" data-aba="registros">Registros</button>
-            <button type="button" class="saep-sidebar__item" data-aba="documentos">Documentos</button>
+            <button type="button" class="saep-sidebar__item" data-aba="plataformas">Plataformas</button>
         </aside>
 
         <main class="saep-main">
@@ -31,7 +30,6 @@
                     <p id="saepDetalheSubtitulo" class="saep-detail-subtitle"></p>
                 </div>
                 <div class="saep-actions">
-                    <button type="button" class="o-container__turmas__cadastrar" id="btnGerenciarRegistros">Gerenciar registros</button>
                     <button type="button" class="o-container__turmas__cadastrar" id="btnEditarDataSaep">Cadastrar/editar SAEP</button>
                 </div>
             </header>
@@ -114,24 +112,61 @@
                     <div class="saep-card__header">
                         <h3>Histórico da turma</h3>
                     </div>
-                    <div id="saepHistorico"></div>
-                </div>
-            </section>
-
-            <section id="saepSectionRegistros" class="saep-section" style="display:none;">
-                <div class="saep-toolbar">
-                    <h2>Registros</h2>
-                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovoRegistroSaep">Novo registro</button>
-                </div>
-                <div id="saepListaRegistros"></div>
-            </section>
-
-            <section id="saepSectionDocumentos" class="saep-section" style="display:none;">
-                <div class="saep-card">
-                    <div class="saep-card__header">
-                        <h3>Documentos</h3>
+                    <div id="saepHistoricoTabs" class="saep-historico-tabs">
+                        <button type="button" class="saep-historico-tab active" data-subaba="saep">SAEP</button>
+                        <button type="button" class="saep-historico-tab" data-subaba="praticas">Avaliações Práticas</button>
+                        <button type="button" class="saep-historico-tab" data-subaba="objetivas">Avaliações Objetivas</button>
                     </div>
-                    <p class="saep-muted">Os anexos e documentos podem ser organizados aqui posteriormente.</p>
+                    <div id="saepHistoricoConteudo"></div>
+                </div>
+            </section>
+
+            <section id="saepSectionPlataformas" class="saep-section" style="display:none;">
+                <div class="saep-plataformas-stack">
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Mural em Destaque</h3>
+                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarInformativos">Cadastrar informativos</button>
+                        </div>
+                        <div id="saepMuralDestaque"></div>
+                    </div>
+
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Datas do SAEP e Etapas de Acesso</h3>
+                            <div class="saep-plataformas-actions">
+                                <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarDatasSaepPlataforma">Cadastrar datas do SAEP</button>
+                                <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarEtapasAcesso">Cadastrar Etapas de Acesso</button>
+                            </div>
+                        </div>
+                        <div id="saepListaDatasPlataforma" class="saep-upload-history"></div>
+                    </div>
+
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Etapas de Acesso e Ciclos</h3>
+                        </div>
+                        <div id="saepTabelaEtapasAcesso"></div>
+                    </div>
+
+                    <div class="saep-card">
+                        <div class="saep-card__header">
+                            <h3>Importação de desempenho</h3>
+                        </div>
+                        <p class="saep-muted">Importe o Excel de desempenho do SAEP para manter o histórico de simulados da turma.</p>
+                        <div class="saep-upload-box">
+                            <label for="saepUploadExcel" class="saep-upload-label">Arquivo de desempenho (Excel)</label>
+                            <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
+                            <div class="saep-upload-actions">
+                                <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
+                            </div>
+                            <p class="saep-muted saep-upload-note">
+                                Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
+                                D. por Competência - Detalhes e Desempenho Individual - Detalhe.
+                            </p>
+                        </div>
+                        <div id="saepHistoricoImports" class="saep-upload-history"></div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -236,46 +271,102 @@
         </div>
     </div>
 
-    <div id="modalCadastroRegistroSaep" class="modal-cadastro" aria-hidden="true">
+    <div id="modalInformativoPlataforma" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3 id="tituloModalRegistroSaep">Novo registro</h3>
-            <form id="formCadastroRegistroSaep" onsubmit="salvarRegistroSaep(event)">
-                <input type="hidden" id="registroIdSaep" value="">
-                <input type="hidden" id="registroTurmaSaep" value="">
+            <h3>Cadastrar informativo</h3>
+            <form id="formInformativoPlataforma">
                 <div class="form-grid">
-                    <label>
-                        Título
-                        <input id="registroTituloSaep" type="text" required>
-                    </label>
-                    <label>
-                        Tópico
-                        <input id="registroTopicoSaep" type="text" required>
-                    </label>
-                    <label>
-                        Data
-                        <input id="registroDataSaep" type="date" required>
-                    </label>
-                    <label>
-                        Status
-                        <select id="registroStatusSaep">
-                            <option value="Em andamento">Em andamento</option>
-                            <option value="Concluído">Concluído</option>
-                        </select>
-                    </label>
                     <label class="saep-full-width">
-                        Descrição
-                        <textarea id="registroDescricaoSaep" rows="4" required></textarea>
+                        Informativo
+                        <textarea id="informativoPlataformaTexto" rows="5" placeholder="Escreva o recado geral para o mural..." required></textarea>
                     </label>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
-                    <button type="button" class="btn-secondary" onclick="fecharModalRegistroSaep()">Cancelar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarInformativoPlataforma">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalDatasSaepPlataforma" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Cadastrar datas do SAEP</h3>
+            <form id="formDatasSaepPlataforma">
+                <div class="form-grid">
+                    <label>
+                        Tipo de prova
+                        <select id="tipoProvaSaepPlataforma" required>
+                            <option value="objetiva">Prova Objetiva</option>
+                            <option value="pratica">Prova Prática</option>
+                        </select>
+                    </label>
+                    <label>
+                        Código da Turma
+                        <input id="codigoTurmaPlataforma" type="text" required>
+                    </label>
+                    <label>
+                        Instrutor
+                        <input id="instrutorPlataforma" type="text" required>
+                    </label>
+                    <label id="grupoDataObjetivaPlataforma">
+                        Data da prova objetiva
+                        <input id="dataObjetivaPlataforma" type="date">
+                    </label>
+                    <label id="grupoDataPraticaInicioPlataforma" style="display:none;">
+                        Data de início (prática)
+                        <input id="dataPraticaInicioPlataforma" type="date">
+                    </label>
+                    <label id="grupoDataPraticaFimPlataforma" style="display:none;">
+                        Data de término (prática)
+                        <input id="dataPraticaFimPlataforma" type="date">
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarDatasSaepPlataforma">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalEtapasAcesso" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalEtapasAcesso">Cadastrar Etapas de Acesso</h3>
+            <form id="formEtapasAcesso">
+                <input type="hidden" id="etapaAcessoId" value="">
+                <div class="form-grid">
+                    <label>
+                        Data de Início
+                        <input id="etapaDataInicio" type="date" required>
+                    </label>
+                    <label>
+                        Data de Fim
+                        <input id="etapaDataFim" type="date" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Ação
+                        <input id="etapaAcao" type="text" required>
+                    </label>
+                    <label>
+                        Status
+                        <select id="etapaStatus" required>
+                            <option value="Irá iniciar">Irá iniciar</option>
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Concluída">Concluída</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarEtapasAcesso">Cancelar</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script src="sync-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

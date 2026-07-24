@@ -47,7 +47,7 @@
                                     <th>Data Início</th>
                                     <th>Data Fim</th>
                                     <th>Instrutor</th>
-                                    <th>Ações</th>
+                                    <th>Consulta</th>
                                 </tr>
                             </thead>
                             <tbody id="corpotablecadastrodeTurmas"></tbody>
@@ -55,6 +55,16 @@
                     </div>
                 </section>
             </main>
+        </div>
+    </div>
+
+    <div id="modalConsultaTurmaFinalizada" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content modal-content--xl consulta-finalizada">
+            <div class="saep-card__header">
+                <h3>Histórico da Turma (Consulta)</h3>
+                <button type="button" class="btn-secondary" onclick="fecharModalConsultaTurmaFinalizada()">Fechar</button>
+            </div>
+            <div id="conteudoConsultaTurmaFinalizada"></div>
         </div>
     </div>
 

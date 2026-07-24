@@ -12,7 +12,9 @@ const STORAGE_SYNC_STATIC_KEYS = [
     "saepAcoes",
     "saepAvaliacoesObjetivo",
     "saepAvaliacoesPratico",
-    "saepRegistros"
+    "saepSimuladosExcel",
+    "saepPlataformasDados",
+    "saepHistoricoIndicadores"
 ];
 const STORAGE_SYNC_PREFIXES = [
     `${STORAGE_KEY_ALUNOS}_`,
@@ -26,6 +28,16 @@ const APP_SYNC_STATE = {
     pendingTimeout: null,
     isSyncing: false
 };
+
+const SAEP_IMPORT_STORAGE_KEY = "saepSimuladosExcel";
+const SAEP_PLATAFORMAS_STORAGE_KEY = "saepPlataformasDados";
+const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
+const SAEP_ABAS_OBRIGATORIAS = [
+    "D. por Competência - Cruzamento",
+    "D. por Competência - Itens",
+    "D. por Competência - Detalhes",
+    "Desempenho Individual - Detalhe"
+];
 
 function normalizarUrlSync(url) {
     return (url || "").replace(/\/+$/, "");
@@ -432,8 +444,16 @@ function renderizarTabelaTurmas(turmas, containerId = "corpotablecadastrodeTurma
             celulaAcoes.appendChild(botaoExcluir);
             celulaAcoes.appendChild(botaoFinalizar);
         } else {
-            const botaoExcluir = criarBotaoAcao("🗑️", "btn-delete", () => excluirTurma(index, STORAGE_KEY_FINALIZADAS));
-            celulaAcoes.appendChild(botaoExcluir);
+            const botaoConsulta = criarBotaoAcao("Consultar", "btn-secondary", () => abrirModalConsultaTurmaFinalizada(turma.codigoTurma));
+            celulaAcoes.appendChild(botaoConsulta);
+
+            linha.style.cursor = "pointer";
+            linha.addEventListener("click", (event) => {
+                if (event.target.closest("button")) {
+                    return;
+                }
+                abrirModalConsultaTurmaFinalizada(turma.codigoTurma);
+            });
         }
 
         linha.appendChild(celulaAcoes);
@@ -475,7 +495,191 @@ function finalizarTurma(index) {
 
     salvarTurmasNoStorage(turmasAndamento, STORAGE_KEY);
     salvarTurmasNoStorage(turmasFinalizadas, STORAGE_KEY_FINALIZADAS);
+    renderizarPaginaAtual();
     window.location.href = "TurmasFinalizadas.html";
+}
+
+function obterTurmaPorCodigo(codigoTurma) {
+    const andamento = carregarTurmasDoStorage(STORAGE_KEY);
+    const finalizadas = carregarTurmasDoStorage(STORAGE_KEY_FINALIZADAS);
+    return [...andamento, ...finalizadas].find((item) => item.codigoTurma === codigoTurma) || null;
+}
+
+function carregarDadosSaepDaTurmaConsulta(codigoTurma) {
+    const turma = obterTurmaPorCodigo(codigoTurma);
+    const datas = (carregarTurmasDoStorage("saepDatas") || []).find((item) => item.codigoTurma === codigoTurma) || {};
+    const acoes = (carregarTurmasDoStorage("saepAcoes") || []).filter((item) => item.codigoTurma === codigoTurma);
+    const avaliacoesObjetivo = (carregarTurmasDoStorage("saepAvaliacoesObjetivo") || []).filter((item) => item.codigoTurma === codigoTurma);
+    const avaliacoesPratico = (carregarTurmasDoStorage("saepAvaliacoesPratico") || []).filter((item) => item.codigoTurma === codigoTurma);
+    const plataformas = obterDadosPlataformasTurma(codigoTurma);
+
+    return { turma, datas, acoes, avaliacoesObjetivo, avaliacoesPratico, plataformas };
+}
+
+function abrirModalConsultaTurmaFinalizada(codigoTurma) {
+    const modal = document.getElementById("modalConsultaTurmaFinalizada");
+    const conteudo = document.getElementById("conteudoConsultaTurmaFinalizada");
+    if (!modal || !conteudo) {
+        return;
+    }
+
+    const dados = carregarDadosSaepDaTurmaConsulta(codigoTurma);
+    if (!dados.turma) {
+        alert("Turma não encontrada para consulta.");
+        return;
+    }
+
+    const indicadores = calcularIndicadoresSaep(dados);
+    const etapas = dados.plataformas?.etapas || [];
+    const informativos = dados.plataformas?.informativos || [];
+
+    conteudo.innerHTML = `
+        <div class="consulta-finalizada__badge">Turma Finalizada - Modo de Consulta</div>
+        <div class="saep-grid saep-grid--2">
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Dados da Turma</h3></div>
+                <div class="form-grid">
+                    <label>Código da Turma<input type="text" value="${dados.turma.codigoTurma || ""}" readonly disabled></label>
+                    <label>Curso<input type="text" value="${dados.turma.curso || ""}" readonly disabled></label>
+                    <label>Instrutor<input type="text" value="${dados.turma.instrutor || ""}" readonly disabled></label>
+                    <label>Período<input type="text" value="${formatarDataParaExibirSaep(dados.turma.dataInicio)} a ${formatarDataParaExibirSaep(dados.turma.dataFim)}" readonly disabled></label>
+                </div>
+            </div>
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Resumo Pedagógico</h3></div>
+                <div class="saep-metric-grid">
+                    <div class="saep-metric-card"><span>Média da turma</span><strong>${indicadores.mediaTurma !== "-" ? indicadores.mediaTurma : "Sem avaliações"}</strong></div>
+                    <div class="saep-metric-card"><span>Meta</span><strong>${indicadores.meta}</strong></div>
+                    <div class="saep-metric-card"><span>Alunos abaixo da meta</span><strong>${indicadores.alunosAbaixoMeta}</strong></div>
+                    <div class="saep-metric-card"><span>Ações + etapas</span><strong>${dados.acoes.length + etapas.length}</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="saep-grid saep-grid--2">
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Datas SAEP</h3></div>
+                <div class="form-grid">
+                    <label>Prova Objetiva<input type="text" value="${formatarDataParaExibirSaep(dados.datas.saepObjetivo || "")}" readonly disabled></label>
+                    <label>Prova Prática<input type="text" value="${formatarDataParaExibirSaep(dados.datas.saepPratico || "")}" readonly disabled></label>
+                </div>
+            </div>
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Visualização de Gráficos</h3></div>
+                <div class="saep-empty-state">Gráficos e painéis mantidos em modo somente leitura.</div>
+            </div>
+        </div>
+
+        <div class="saep-card">
+            <div class="saep-card__header"><h3>Plano de Ação (Consulta)</h3></div>
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead><tr><th>Título</th><th>Data</th><th>Responsável</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${dados.acoes.length === 0
+        ? '<tr><td colspan="4">Nenhuma ação registrada.</td></tr>'
+        : dados.acoes.map((item) => `<tr><td>${item.titulo}</td><td>${formatarDataParaExibirSaep(item.data)}</td><td>${item.responsavel}</td><td>${item.status}</td></tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="saep-card">
+            <div class="saep-card__header"><h3>Etapas de Acesso (Consulta)</h3></div>
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead><tr><th>Início</th><th>Fim</th><th>Ação</th><th>Status</th><th>Observações</th></tr></thead>
+                    <tbody>
+                        ${etapas.length === 0
+        ? '<tr><td colspan="5">Nenhuma etapa registrada.</td></tr>'
+        : etapas.map((item) => `
+                            <tr>
+                                <td>${formatarDataParaExibirSaep(item.dataInicio)}</td>
+                                <td>${formatarDataParaExibirSaep(item.dataFim)}</td>
+                                <td>${item.acao || "-"}</td>
+                                <td>${item.status || "-"}</td>
+                                <td>${item.observacoes || "-"}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="saep-grid saep-grid--2">
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Avaliações Objetivas (Consulta)</h3></div>
+                <div class="table-scroll">
+                    <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                        <thead><tr><th>Data</th><th>Nota Média</th><th>Observações</th></tr></thead>
+                        <tbody>
+                            ${dados.avaliacoesObjetivo.length === 0
+        ? '<tr><td colspan="3">Nenhuma avaliação objetiva registrada.</td></tr>'
+        : dados.avaliacoesObjetivo.map((item) => `
+                                <tr>
+                                    <td>${formatarDataParaExibirSaep(item.data)}</td>
+                                    <td>${item.notaMedia || "-"}</td>
+                                    <td>${item.observacoes || "-"}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="saep-card">
+                <div class="saep-card__header"><h3>Avaliações Práticas (Consulta)</h3></div>
+                <div class="table-scroll">
+                    <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                        <thead><tr><th>Data</th><th>Nota Média</th><th>Observações</th></tr></thead>
+                        <tbody>
+                            ${dados.avaliacoesPratico.length === 0
+        ? '<tr><td colspan="3">Nenhuma avaliação prática registrada.</td></tr>'
+        : dados.avaliacoesPratico.map((item) => `
+                                <tr>
+                                    <td>${formatarDataParaExibirSaep(item.data)}</td>
+                                    <td>${item.notaMedia || "-"}</td>
+                                    <td>${item.observacoes || "-"}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="saep-card">
+            <div class="saep-card__header"><h3>Mural e Informativos (Consulta)</h3></div>
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead><tr><th>Data</th><th>Informativo</th></tr></thead>
+                    <tbody>
+                        ${informativos.length === 0
+        ? '<tr><td colspan="2">Nenhum informativo registrado.</td></tr>'
+        : informativos.slice().reverse().map((item) => `
+                            <tr>
+                                <td>${item.criadoEm ? new Date(item.criadoEm).toLocaleString("pt-BR") : "-"}</td>
+                                <td>${item.texto || "-"}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+}
+
+function fecharModalConsultaTurmaFinalizada() {
+    const modal = document.getElementById("modalConsultaTurmaFinalizada");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
 }
 
 function renderizarPaginaAtual() {
@@ -1002,11 +1206,1126 @@ function carregarDadosSaepDaTurma(codigoTurma) {
     return { turma, datas, acoes, avaliacoesObjetivo, avaliacoesPratico };
 }
 
+function carregarDadosPlataformasSaep() {
+    const dados = carregarTurmasDoStorage(SAEP_PLATAFORMAS_STORAGE_KEY);
+
+    if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+        return {};
+    }
+
+    return dados;
+}
+
+function salvarDadosPlataformasSaep(dados) {
+    salvarTurmasNoStorage(dados, SAEP_PLATAFORMAS_STORAGE_KEY);
+}
+
+function obterDadosPlataformasTurma(codigoTurma) {
+    const dados = carregarDadosPlataformasSaep();
+    const turma = dados[codigoTurma] || {};
+
+    return {
+        informativos: Array.isArray(turma.informativos) ? turma.informativos : [],
+        datasSaep: Array.isArray(turma.datasSaep) ? turma.datasSaep : [],
+        etapas: Array.isArray(turma.etapas) ? turma.etapas : []
+    };
+}
+
+function atualizarDadosPlataformasTurma(codigoTurma, atualizador) {
+    const dados = carregarDadosPlataformasSaep();
+    const atual = obterDadosPlataformasTurma(codigoTurma);
+    dados[codigoTurma] = atualizador({
+        informativos: [...atual.informativos],
+        datasSaep: [...atual.datasSaep],
+        etapas: [...atual.etapas]
+    });
+    salvarDadosPlataformasSaep(dados);
+    return dados[codigoTurma];
+}
+
+function abrirModalPlataforma(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+}
+
+function fecharModalPlataforma(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+function atualizarCamposTipoProvaPlataforma() {
+    const tipo = document.getElementById("tipoProvaSaepPlataforma")?.value;
+    const grupoObjetiva = document.getElementById("grupoDataObjetivaPlataforma");
+    const grupoPraticaInicio = document.getElementById("grupoDataPraticaInicioPlataforma");
+    const grupoPraticaFim = document.getElementById("grupoDataPraticaFimPlataforma");
+    const dataObjetiva = document.getElementById("dataObjetivaPlataforma");
+    const dataPraticaInicio = document.getElementById("dataPraticaInicioPlataforma");
+    const dataPraticaFim = document.getElementById("dataPraticaFimPlataforma");
+
+    if (!grupoObjetiva || !grupoPraticaInicio || !grupoPraticaFim || !dataObjetiva || !dataPraticaInicio || !dataPraticaFim) {
+        return;
+    }
+
+    const isObjetiva = tipo === "objetiva";
+    grupoObjetiva.style.display = isObjetiva ? "flex" : "none";
+    grupoPraticaInicio.style.display = isObjetiva ? "none" : "flex";
+    grupoPraticaFim.style.display = isObjetiva ? "none" : "flex";
+
+    dataObjetiva.required = isObjetiva;
+    dataPraticaInicio.required = !isObjetiva;
+    dataPraticaFim.required = !isObjetiva;
+}
+
+function renderizarMuralPlataformas(codigoTurma) {
+    const container = document.getElementById("saepMuralDestaque");
+    if (!container) {
+        return;
+    }
+
+    const { informativos } = obterDadosPlataformasTurma(codigoTurma);
+
+    if (informativos.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Nenhum informativo cadastrado para esta turma.</div>';
+        return;
+    }
+
+    const [maisRecente] = informativos.slice(-1);
+
+    container.innerHTML = `
+        <div class="saep-mural-highlight">
+            <strong>Último informativo</strong>
+            <p>${maisRecente.texto}</p>
+            <span>${new Date(maisRecente.criadoEm).toLocaleString("pt-BR")}</span>
+        </div>
+        <ul class="saep-list saep-mural-list">
+            ${informativos.slice().reverse().map((item) => `
+                <li>
+                    <div class="saep-mural-item-head">
+                        <strong>${new Date(item.criadoEm).toLocaleDateString("pt-BR")}</strong>
+                        <button type="button" class="btn-delete saep-inline-danger" data-excluir-informativo="${item.id}" title="Excluir informativo">🗑️</button>
+                    </div>
+                    <p>${item.texto}</p>
+                </li>
+            `).join("")}
+        </ul>
+    `;
+
+    container.querySelectorAll("[data-excluir-informativo]").forEach((botao) => {
+        botao.onclick = () => {
+            const informativoId = botao.getAttribute("data-excluir-informativo");
+            const confirmar = window.confirm("Deseja realmente excluir este informativo?");
+            if (!confirmar) {
+                return;
+            }
+
+            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+                ...dadosTurma,
+                informativos: dadosTurma.informativos.filter((item) => item.id !== informativoId)
+            }));
+
+            renderizarMuralPlataformas(codigoTurma);
+        };
+    });
+}
+
+function renderizarDatasSaepPlataforma(codigoTurma) {
+    const container = document.getElementById("saepListaDatasPlataforma");
+    if (!container) {
+        return;
+    }
+
+    const { datasSaep } = obterDadosPlataformasTurma(codigoTurma);
+
+    if (datasSaep.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Nenhuma data de SAEP cadastrada nesta aba.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Código da Turma</th>
+                        <th>Instrutor</th>
+                        <th>Data(s)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${datasSaep.slice().reverse().map((item) => `
+                        <tr>
+                            <td>${item.tipo === "objetiva" ? "Prova Objetiva" : "Prova Prática"}</td>
+                            <td>${item.codigoTurma}</td>
+                            <td>${item.instrutor}</td>
+                            <td>
+                                ${item.tipo === "objetiva"
+        ? formatarDataParaExibirSaep(item.data)
+        : `${formatarDataParaExibirSaep(item.dataInicio)} a ${formatarDataParaExibirSaep(item.dataFim)}`}
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderizarTabelaEtapasAcesso(codigoTurma) {
+    const container = document.getElementById("saepTabelaEtapasAcesso");
+    if (!container) {
+        return;
+    }
+
+    const { etapas } = obterDadosPlataformasTurma(codigoTurma);
+
+    container.innerHTML = `
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Início</th>
+                        <th>Fim</th>
+                        <th>Ação</th>
+                        <th>Status</th>
+                        <th>Ações/Edição</th>
+                        <th>Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${etapas.length === 0
+        ? '<tr><td colspan="6">Nenhuma etapa cadastrada.</td></tr>'
+        : etapas.map((item) => `
+                        <tr>
+                            <td>${formatarDataParaExibirSaep(item.dataInicio)}</td>
+                            <td>${formatarDataParaExibirSaep(item.dataFim)}</td>
+                            <td>${item.acao}</td>
+                            <td>${item.status}</td>
+                            <td>
+                                <button type="button" class="btn-secondary saep-inline-btn" data-editar-etapa="${item.id}">Editar</button>
+                                <button type="button" class="btn-delete saep-inline-danger" data-excluir-etapa="${item.id}" title="Excluir etapa">🗑️</button>
+                            </td>
+                            <td>
+                                <button type="button" class="saep-icon-btn" data-observacao-etapa="${item.id}" title="Editar observações">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.04a1.003 1.003 0 000-1.42l-2.5-2.5a1.003 1.003 0 00-1.42 0L14.13 5.95l3.75 3.75 2.83-2.49z"/>
+                                    </svg>
+                                </button>
+                                <span class="saep-observacao-preview">${item.observacoes ? item.observacoes : "Sem observações"}</span>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.querySelectorAll("[data-editar-etapa]").forEach((botao) => {
+        botao.onclick = () => {
+            const etapaId = botao.getAttribute("data-editar-etapa");
+            const etapa = etapas.find((item) => item.id === etapaId);
+            if (!etapa) {
+                return;
+            }
+
+            document.getElementById("etapaAcessoId").value = etapa.id;
+            document.getElementById("etapaDataInicio").value = etapa.dataInicio;
+            document.getElementById("etapaDataFim").value = etapa.dataFim;
+            document.getElementById("etapaAcao").value = etapa.acao;
+            document.getElementById("etapaStatus").value = etapa.status;
+            document.getElementById("tituloModalEtapasAcesso").textContent = "Editar Etapa de Acesso";
+            abrirModalPlataforma("modalEtapasAcesso");
+        };
+    });
+
+    container.querySelectorAll("[data-observacao-etapa]").forEach((botao) => {
+        botao.onclick = () => {
+            const etapaId = botao.getAttribute("data-observacao-etapa");
+            const etapa = etapas.find((item) => item.id === etapaId);
+            if (!etapa) {
+                return;
+            }
+
+            const texto = window.prompt("Digite as observações desta etapa:", etapa.observacoes || "");
+            if (texto === null) {
+                return;
+            }
+
+            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+                ...dadosTurma,
+                etapas: dadosTurma.etapas.map((item) => item.id === etapaId ? { ...item, observacoes: texto.trim() } : item)
+            }));
+
+            renderizarTabelaEtapasAcesso(codigoTurma);
+        };
+    });
+
+    container.querySelectorAll("[data-excluir-etapa]").forEach((botao) => {
+        botao.onclick = () => {
+            const etapaId = botao.getAttribute("data-excluir-etapa");
+            const confirmar = window.confirm("Deseja realmente excluir esta etapa?");
+            if (!confirmar) {
+                return;
+            }
+
+            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+                ...dadosTurma,
+                etapas: dadosTurma.etapas.filter((item) => item.id !== etapaId)
+            }));
+
+            renderizarTabelaEtapasAcesso(codigoTurma);
+        };
+    });
+}
+
+function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
+    const botaoInformativo = document.getElementById("btnCadastrarInformativos");
+    const botaoDatasSaep = document.getElementById("btnCadastrarDatasSaepPlataforma");
+    const botaoEtapas = document.getElementById("btnCadastrarEtapasAcesso");
+    const formInformativo = document.getElementById("formInformativoPlataforma");
+    const formDatas = document.getElementById("formDatasSaepPlataforma");
+    const formEtapas = document.getElementById("formEtapasAcesso");
+    const selectTipoProva = document.getElementById("tipoProvaSaepPlataforma");
+    const inputCodigoTurma = document.getElementById("codigoTurmaPlataforma");
+    const inputInstrutor = document.getElementById("instrutorPlataforma");
+    const modalInformativo = document.getElementById("modalInformativoPlataforma");
+    const modalDatas = document.getElementById("modalDatasSaepPlataforma");
+    const modalEtapas = document.getElementById("modalEtapasAcesso");
+
+    if (!botaoInformativo || !botaoDatasSaep || !botaoEtapas || !formInformativo || !formDatas || !formEtapas || !selectTipoProva || !inputCodigoTurma || !inputInstrutor || !modalInformativo || !modalDatas || !modalEtapas) {
+        return;
+    }
+
+    renderizarMuralPlataformas(codigoTurma);
+    renderizarDatasSaepPlataforma(codigoTurma);
+    renderizarTabelaEtapasAcesso(codigoTurma);
+
+    botaoInformativo.onclick = () => {
+        formInformativo.reset();
+        abrirModalPlataforma("modalInformativoPlataforma");
+    };
+
+    document.getElementById("btnCancelarInformativoPlataforma").onclick = () => fecharModalPlataforma("modalInformativoPlataforma");
+
+    formInformativo.onsubmit = (event) => {
+        event.preventDefault();
+        const texto = document.getElementById("informativoPlataformaTexto").value.trim();
+
+        if (!texto) {
+            alert("Preencha o informativo.");
+            return;
+        }
+
+        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+            ...dadosTurma,
+            informativos: [...dadosTurma.informativos, { id: `${Date.now()}`, texto, criadoEm: new Date().toISOString() }]
+        }));
+
+        fecharModalPlataforma("modalInformativoPlataforma");
+        renderizarMuralPlataformas(codigoTurma);
+    };
+
+    botaoDatasSaep.onclick = () => {
+        formDatas.reset();
+        inputCodigoTurma.value = codigoTurma;
+        inputInstrutor.value = instrutorPadrao || "";
+        selectTipoProva.value = "objetiva";
+        atualizarCamposTipoProvaPlataforma();
+        abrirModalPlataforma("modalDatasSaepPlataforma");
+    };
+
+    document.getElementById("btnCancelarDatasSaepPlataforma").onclick = () => fecharModalPlataforma("modalDatasSaepPlataforma");
+
+    selectTipoProva.onchange = atualizarCamposTipoProvaPlataforma;
+
+    formDatas.onsubmit = (event) => {
+        event.preventDefault();
+
+        const tipo = selectTipoProva.value;
+        const codigoTurmaInformado = inputCodigoTurma.value.trim();
+        const instrutor = inputInstrutor.value.trim();
+        const dataObjetiva = document.getElementById("dataObjetivaPlataforma").value;
+        const dataPraticaInicio = document.getElementById("dataPraticaInicioPlataforma").value;
+        const dataPraticaFim = document.getElementById("dataPraticaFimPlataforma").value;
+
+        if (!codigoTurmaInformado || !instrutor) {
+            alert("Informe código da turma e instrutor.");
+            return;
+        }
+
+        if (tipo === "objetiva" && !dataObjetiva) {
+            alert("Informe a data da prova objetiva.");
+            return;
+        }
+
+        if (tipo === "pratica" && (!dataPraticaInicio || !dataPraticaFim)) {
+            alert("Informe início e término da prova prática.");
+            return;
+        }
+
+        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+            ...dadosTurma,
+            datasSaep: [...dadosTurma.datasSaep, {
+                id: `${Date.now()}`,
+                tipo,
+                codigoTurma: codigoTurmaInformado,
+                instrutor,
+                data: tipo === "objetiva" ? dataObjetiva : "",
+                dataInicio: tipo === "pratica" ? dataPraticaInicio : "",
+                dataFim: tipo === "pratica" ? dataPraticaFim : "",
+                criadoEm: new Date().toISOString()
+            }]
+        }));
+
+        fecharModalPlataforma("modalDatasSaepPlataforma");
+        renderizarDatasSaepPlataforma(codigoTurma);
+    };
+
+    botaoEtapas.onclick = () => {
+        formEtapas.reset();
+        document.getElementById("etapaAcessoId").value = "";
+        document.getElementById("tituloModalEtapasAcesso").textContent = "Cadastrar Etapas de Acesso";
+        abrirModalPlataforma("modalEtapasAcesso");
+    };
+
+    document.getElementById("btnCancelarEtapasAcesso").onclick = () => fecharModalPlataforma("modalEtapasAcesso");
+
+    formEtapas.onsubmit = (event) => {
+        event.preventDefault();
+
+        const etapaId = document.getElementById("etapaAcessoId").value;
+        const dataInicio = document.getElementById("etapaDataInicio").value;
+        const dataFim = document.getElementById("etapaDataFim").value;
+        const acao = document.getElementById("etapaAcao").value.trim();
+        const status = document.getElementById("etapaStatus").value;
+
+        if (!dataInicio || !dataFim || !acao || !status) {
+            alert("Preencha todos os campos da etapa.");
+            return;
+        }
+
+        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => {
+            if (etapaId) {
+                return {
+                    ...dadosTurma,
+                    etapas: dadosTurma.etapas.map((item) => item.id === etapaId
+                        ? { ...item, dataInicio, dataFim, acao, status }
+                        : item)
+                };
+            }
+
+            return {
+                ...dadosTurma,
+                etapas: [...dadosTurma.etapas, {
+                    id: `${Date.now()}`,
+                    dataInicio,
+                    dataFim,
+                    acao,
+                    status,
+                    observacoes: ""
+                }]
+            };
+        });
+
+        fecharModalPlataforma("modalEtapasAcesso");
+        renderizarTabelaEtapasAcesso(codigoTurma);
+    };
+
+    modalInformativo.onclick = (event) => {
+        if (event.target === modalInformativo) {
+            fecharModalPlataforma("modalInformativoPlataforma");
+        }
+    };
+
+    modalDatas.onclick = (event) => {
+        if (event.target === modalDatas) {
+            fecharModalPlataforma("modalDatasSaepPlataforma");
+        }
+    };
+
+    modalEtapas.onclick = (event) => {
+        if (event.target === modalEtapas) {
+            fecharModalPlataforma("modalEtapasAcesso");
+        }
+    };
+}
+
+function carregarHistoricoImportacaoSaep() {
+    const dados = carregarTurmasDoStorage(SAEP_IMPORT_STORAGE_KEY);
+
+    if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+        return {};
+    }
+
+    return dados;
+}
+
+function salvarHistoricoImportacaoSaep(historico) {
+    salvarTurmasNoStorage(historico, SAEP_IMPORT_STORAGE_KEY);
+}
+
+function obterHistoricoImportacaoTurmaSaep(codigoTurma) {
+    const historico = carregarHistoricoImportacaoSaep();
+    const itens = historico[codigoTurma];
+
+    return Array.isArray(itens) ? itens : [];
+}
+
+function renderizarHistoricoImportacaoSaep(codigoTurma) {
+    const container = document.getElementById("saepHistoricoImports");
+    if (!container) {
+        return;
+    }
+
+    const historicoTurma = obterHistoricoImportacaoTurmaSaep(codigoTurma);
+
+    if (historicoTurma.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Nenhum simulado importado para esta turma.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Arquivo</th>
+                        <th>Importado em</th>
+                        <th>Registros (Cruzamento/Itens/Detalhes/Individual)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${historicoTurma.slice().reverse().map((item) => `
+                        <tr>
+                            <td>${item.nomeArquivo || "-"}</td>
+                            <td>${item.importadoEm ? new Date(item.importadoEm).toLocaleString("pt-BR") : "-"}</td>
+                            <td>
+                                ${item.resumo?.cruzamento ?? 0} /
+                                ${item.resumo?.itens ?? 0} /
+                                ${item.resumo?.detalhes ?? 0} /
+                                ${item.resumo?.individual ?? 0}
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function exibirAbaSaepDetalhes(aba) {
+    const secoes = document.querySelectorAll(".saep-section");
+    const botoesSidebar = document.querySelectorAll(".saep-sidebar__item");
+
+    secoes.forEach((secao) => {
+        secao.style.display = "none";
+    });
+
+    const secaoAlvo = document.getElementById(`saepSection${aba.charAt(0).toUpperCase() + aba.slice(1)}`);
+    if (secaoAlvo) {
+        secaoAlvo.style.display = "block";
+    }
+
+    if (aba === "resumo") {
+        const codigoTurma = new URLSearchParams(window.location.search).get("turma");
+        if (codigoTurma) {
+            renderizarResumoPedagogicoSaep(codigoTurma);
+        }
+    }
+
+    botoesSidebar.forEach((item) => {
+        item.classList.toggle("active", item.dataset.aba === aba);
+    });
+}
+
+function obterWorksheetSaep(workbook, nomeAba) {
+    const nomeEncontrado = (workbook.SheetNames || []).find((nome) => nome.trim() === nomeAba.trim());
+    return nomeEncontrado ? workbook.Sheets[nomeEncontrado] : null;
+}
+
+async function importarArquivoDesempenhoSaep(codigoTurma, arquivo) {
+    if (!window.XLSX) {
+        throw new Error("A biblioteca SheetJS (XLSX) não foi carregada.");
+    }
+
+    const buffer = await arquivo.arrayBuffer();
+    const workbook = window.XLSX.read(buffer, { type: "array" });
+
+    const abasFaltantes = SAEP_ABAS_OBRIGATORIAS.filter((nomeAba) => !obterWorksheetSaep(workbook, nomeAba));
+    if (abasFaltantes.length > 0) {
+        throw new Error(`A planilha não possui as abas obrigatórias: ${abasFaltantes.join(", ")}.`);
+    }
+
+    const cruzamento = window.XLSX.utils.sheet_to_json(obterWorksheetSaep(workbook, SAEP_ABAS_OBRIGATORIAS[0]), { defval: null, raw: false });
+    const itens = window.XLSX.utils.sheet_to_json(obterWorksheetSaep(workbook, SAEP_ABAS_OBRIGATORIAS[1]), { defval: null, raw: false });
+    const detalhes = window.XLSX.utils.sheet_to_json(obterWorksheetSaep(workbook, SAEP_ABAS_OBRIGATORIAS[2]), { defval: null, raw: false });
+    const individual = window.XLSX.utils.sheet_to_json(obterWorksheetSaep(workbook, SAEP_ABAS_OBRIGATORIAS[3]), { defval: null, raw: false });
+
+    const historico = carregarHistoricoImportacaoSaep();
+    const historicoTurma = Array.isArray(historico[codigoTurma]) ? historico[codigoTurma] : [];
+
+    historicoTurma.push({
+        id: `${Date.now()}`,
+        codigoTurma,
+        nomeArquivo: arquivo.name,
+        importadoEm: new Date().toISOString(),
+        resumo: {
+            cruzamento: cruzamento.length,
+            itens: itens.length,
+            detalhes: detalhes.length,
+            individual: individual.length
+        },
+        dados: {
+            cruzamento,
+            itens,
+            detalhes,
+            individual
+        }
+    });
+
+    historico[codigoTurma] = historicoTurma;
+    salvarHistoricoImportacaoSaep(historico);
+}
+
+async function processarImportacaoSaepDaTurma(codigoTurma) {
+    const inputArquivo = document.getElementById("saepUploadExcel");
+    if (!inputArquivo || !inputArquivo.files || inputArquivo.files.length === 0) {
+        alert("Selecione um arquivo Excel antes de importar.");
+        return;
+    }
+
+    const arquivo = inputArquivo.files[0];
+
+    try {
+        await importarArquivoDesempenhoSaep(codigoTurma, arquivo);
+        inputArquivo.value = "";
+        renderizarHistoricoImportacaoSaep(codigoTurma);
+        alert("Arquivo importado com sucesso. Histórico atualizado para a turma.");
+    } catch (error) {
+        console.error("Erro ao importar arquivo SAEP:", error);
+        alert(error.message || "Não foi possível importar o arquivo.");
+    }
+}
+
+function configurarImportacaoSaep(codigoTurma) {
+    const botaoImportar = document.getElementById("btnImportarSaepExcel");
+    if (botaoImportar) {
+        botaoImportar.onclick = () => processarImportacaoSaepDaTurma(codigoTurma);
+    }
+
+    renderizarHistoricoImportacaoSaep(codigoTurma);
+}
+
+function carregarIndicadoresHistoricoSaep() {
+    const dados = carregarTurmasDoStorage(SAEP_HISTORICO_INDICADORES_STORAGE_KEY);
+
+    if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+        return {};
+    }
+
+    return dados;
+}
+
+function normalizarHistoricoIndicadoresTurma(item) {
+    if (!item || typeof item !== "object") {
+        return { ativoId: "", versoes: [] };
+    }
+
+    // Migra estrutura legada (registro único) para estrutura versionada.
+    if (Array.isArray(item.versoes)) {
+        return {
+            ativoId: item.ativoId || "",
+            versoes: item.versoes
+        };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(item, "notaEscola")
+        || Object.prototype.hasOwnProperty.call(item, "notaSegmento")
+        || Object.prototype.hasOwnProperty.call(item, "notaObjetivaSegmento")
+        || Object.prototype.hasOwnProperty.call(item, "notaPraticaSegmento")
+        || Object.prototype.hasOwnProperty.call(item, "capacidadesCriticas")) {
+        const id = `${Date.now()}_mig`;
+        return {
+            ativoId: id,
+            versoes: [{
+                id,
+                criadoEm: new Date().toISOString(),
+                atualizadoEm: new Date().toISOString(),
+                notaEscola: item.notaEscola ?? "",
+                notaSegmento: item.notaSegmento ?? "",
+                notaObjetivaSegmento: item.notaObjetivaSegmento ?? "",
+                notaPraticaSegmento: item.notaPraticaSegmento ?? "",
+                capacidadesCriticas: item.capacidadesCriticas || ""
+            }]
+        };
+    }
+
+    return { ativoId: "", versoes: [] };
+}
+
+function obterHistoricoIndicadoresDaTurma(codigoTurma) {
+    const dados = carregarIndicadoresHistoricoSaep();
+    return normalizarHistoricoIndicadoresTurma(dados[codigoTurma]);
+}
+
+function obterIndicadoresHistoricoDaTurma(codigoTurma) {
+    const historico = obterHistoricoIndicadoresDaTurma(codigoTurma);
+    const ativo = historico.versoes.find((item) => item.id === historico.ativoId)
+        || historico.versoes[historico.versoes.length - 1]
+        || null;
+
+    return {
+        registroId: ativo?.id || "",
+        notaEscola: ativo?.notaEscola ?? "",
+        notaSegmento: ativo?.notaSegmento ?? "",
+        notaObjetivaSegmento: ativo?.notaObjetivaSegmento ?? "",
+        notaPraticaSegmento: ativo?.notaPraticaSegmento ?? "",
+        capacidadesCriticas: ativo?.capacidadesCriticas || ""
+    };
+}
+
+function salvarIndicadoresHistoricoDaTurma(codigoTurma, indicadores, registroId = "") {
+    const dados = carregarIndicadoresHistoricoSaep();
+    const historico = normalizarHistoricoIndicadoresTurma(dados[codigoTurma]);
+
+    if (registroId) {
+        historico.versoes = historico.versoes.map((item) => item.id === registroId
+            ? {
+                ...item,
+                ...indicadores,
+                atualizadoEm: new Date().toISOString()
+            }
+            : item);
+        historico.ativoId = registroId;
+    } else {
+        const novoId = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        historico.versoes.push({
+            id: novoId,
+            criadoEm: new Date().toISOString(),
+            atualizadoEm: new Date().toISOString(),
+            ...indicadores
+        });
+        historico.ativoId = novoId;
+    }
+
+    dados[codigoTurma] = historico;
+    salvarTurmasNoStorage(dados, SAEP_HISTORICO_INDICADORES_STORAGE_KEY);
+}
+
+function excluirIndicadorHistoricoDaTurma(codigoTurma, registroId) {
+    const dados = carregarIndicadoresHistoricoSaep();
+    const historico = normalizarHistoricoIndicadoresTurma(dados[codigoTurma]);
+
+    historico.versoes = historico.versoes.filter((item) => item.id !== registroId);
+    historico.ativoId = historico.versoes.length > 0 ? historico.versoes[historico.versoes.length - 1].id : "";
+
+    dados[codigoTurma] = historico;
+    salvarTurmasNoStorage(dados, SAEP_HISTORICO_INDICADORES_STORAGE_KEY);
+}
+
+function obterCodigosTurmasPorCurso(curso) {
+    const andamento = carregarTurmasDoStorage(STORAGE_KEY) || [];
+    const finalizadas = carregarTurmasDoStorage(STORAGE_KEY_FINALIZADAS) || [];
+
+    return Array.from(new Set([...andamento, ...finalizadas]
+        .filter((turma) => turma?.curso === curso)
+        .map((turma) => turma.codigoTurma)
+        .filter(Boolean)));
+}
+
+function escaparValorCsv(valor) {
+    const texto = `${valor ?? ""}`.replace(/"/g, '""');
+    return `"${texto}"`;
+}
+
+function exportarAvaliacoesCursoCsv(avaliacoes, tituloArquivo) {
+    const cabecalho = ["Turma", "Data", "Nota media", "Observacoes"];
+    const linhas = [cabecalho.join(",")]
+        .concat(avaliacoes.map((item) => [
+            escaparValorCsv(item.codigoTurma || "-"),
+            escaparValorCsv(formatarDataParaExibirSaep(item.data)),
+            escaparValorCsv(item.notaMedia || "-"),
+            escaparValorCsv(item.observacoes || "-")
+        ].join(",")));
+
+    const csv = linhas.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = tituloArquivo;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function renderizarEstadoHistorico(estado = "carregando", mensagem = "") {
+    const container = document.getElementById("saepHistoricoConteudo");
+    if (!container) {
+        return;
+    }
+
+    if (estado === "vazio") {
+        container.innerHTML = `
+            <div class="saep-historico-empty">
+                <strong>Sem dados para exibir</strong>
+                <p>${mensagem || "Ainda não há informações cadastradas para este filtro."}</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="saep-historico-loading" aria-live="polite">
+            <span class="saep-historico-loading__dot" aria-hidden="true"></span>
+            <p>Carregando informações...</p>
+        </div>
+    `;
+}
+
+function renderizarTabelaHistoricoAvaliacoes(codigoTurma, curso, tipo) {
+    const container = document.getElementById("saepHistoricoConteudo");
+    if (!container) {
+        return;
+    }
+
+    const codigosDoCurso = new Set(obterCodigosTurmasPorCurso(curso));
+    const storageKey = tipo === "praticas" ? "saepAvaliacoesPratico" : "saepAvaliacoesObjetivo";
+    const titulo = tipo === "praticas" ? "Avaliações Práticas" : "Avaliações Objetivas";
+    const avaliacoes = (carregarTurmasDoStorage(storageKey) || []).filter((item) => codigosDoCurso.has(item.codigoTurma));
+    const slugCurso = (curso || "curso").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "curso";
+
+    container.innerHTML = `
+        <div class="saep-historico-intro">
+            <p class="saep-muted">${titulo}</p>
+            <h4 class="saep-historico-intro__title">Visão por Curso</h4>
+            <p class="saep-muted">Turma base: ${codigoTurma} · Curso: ${curso || "-"}</p>
+            <div class="saep-historico-kpis">
+                <span class="saep-historico-chip">Registros: ${avaliacoes.length}</span>
+                <span class="saep-historico-chip">Turmas do curso: ${codigosDoCurso.size}</span>
+            </div>
+        </div>
+        <div class="saep-historico-head">
+            <button type="button" class="btn-secondary" id="btnExportarCsvHistorico">Exportar CSV do Curso</button>
+        </div>
+        <div class="table-scroll">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Turma</th>
+                        <th>Data</th>
+                        <th>Nota média</th>
+                        <th>Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${avaliacoes.length === 0
+        ? '<tr><td colspan="4">Nenhuma avaliação encontrada para este curso.</td></tr>'
+        : avaliacoes.map((item) => `
+                        <tr>
+                            <td>${item.codigoTurma || "-"}</td>
+                            <td>${formatarDataParaExibirSaep(item.data)}</td>
+                            <td>${item.notaMedia || "-"}</td>
+                            <td>${item.observacoes || "-"}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    const botaoExportar = document.getElementById("btnExportarCsvHistorico");
+    if (botaoExportar) {
+        botaoExportar.onclick = () => {
+            const sufixo = tipo === "praticas" ? "avaliacoes-praticas" : "avaliacoes-objetivas";
+            exportarAvaliacoesCursoCsv(avaliacoes, `${slugCurso}-${sufixo}.csv`);
+        };
+    }
+}
+
+function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase) {
+    const container = document.getElementById("saepHistoricoConteudo");
+    if (!container) {
+        return;
+    }
+
+    const indicadores = obterIndicadoresHistoricoDaTurma(codigoTurma);
+    const historico = obterHistoricoIndicadoresDaTurma(codigoTurma);
+    const versoesOrdenadas = historico.versoes.slice().sort((a, b) => new Date(b.atualizadoEm).getTime() - new Date(a.atualizadoEm).getTime());
+
+    container.innerHTML = `
+        <div class="saep-historico-intro">
+            <p class="saep-muted">Indicadores Gerais</p>
+            <h4 class="saep-historico-intro__title">SAEP por Turma</h4>
+            <p class="saep-muted">Preencha os indicadores gerais do SAEP e mantenha o histórico de versões.</p>
+            <p class="saep-muted">Turma: ${codigoTurma} · Curso: ${curso || "-"}</p>
+            <div class="saep-historico-kpis">
+                <span class="saep-historico-chip">Ações: ${resumoBase.totalAcoes}</span>
+                <span class="saep-historico-chip">Avaliações: ${resumoBase.totalAvaliacoes}</span>
+            </div>
+        </div>
+        <form id="formHistoricoIndicadoresSaep" class="form-grid saep-historico-form">
+            <input id="histRegistroId" type="hidden" value="${indicadores.registroId}">
+            <label>
+                Nota da Escola
+                <input id="histNotaEscola" type="number" step="0.1" min="0" required value="${indicadores.notaEscola}">
+            </label>
+            <label>
+                Nota por Segmento
+                <input id="histNotaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaSegmento}">
+            </label>
+            <label>
+                Nota da Prova Objetiva por Segmento
+                <input id="histNotaObjetivaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaObjetivaSegmento}">
+            </label>
+            <label>
+                Nota da Prova Prática por Segmento
+                <input id="histNotaPraticaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaPraticaSegmento}">
+            </label>
+            <label class="saep-full-width">
+                Capacidades Críticas
+                <textarea id="histCapacidadesCriticas" rows="4" placeholder="Descreva as capacidades críticas identificadas...">${indicadores.capacidadesCriticas}</textarea>
+                <small class="saep-muted">Use este campo para observações pedagógicas relevantes do ciclo avaliado.</small>
+            </label>
+            <div class="form-actions saep-full-width">
+                <button type="submit" class="btn-primary">Salvar Indicadores Gerais</button>
+                <button type="button" class="btn-secondary" id="btnNovoRegistroIndicador">Novo Registro</button>
+            </div>
+        </form>
+        <div class="saep-historico-head">
+            <p class="saep-muted">Histórico de versões dos indicadores (edição e exclusão por data).</p>
+        </div>
+        <div class="table-scroll saep-historico-versoes">
+            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                <thead>
+                    <tr>
+                        <th>Data de Atualização</th>
+                        <th>Nota da Escola</th>
+                        <th>Nota por Segmento</th>
+                        <th>Objetiva por Segmento</th>
+                        <th>Prática por Segmento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${versoesOrdenadas.length === 0
+        ? '<tr><td colspan="6">Nenhum indicador salvo.</td></tr>'
+        : versoesOrdenadas.map((item) => `
+                        <tr>
+                            <td>${new Date(item.atualizadoEm || item.criadoEm).toLocaleString("pt-BR")}</td>
+                            <td>${item.notaEscola}</td>
+                            <td>${item.notaSegmento}</td>
+                            <td>${item.notaObjetivaSegmento}</td>
+                            <td>${item.notaPraticaSegmento}</td>
+                            <td>
+                                <button type="button" class="btn-secondary saep-inline-btn" data-editar-indicador="${item.id}">Editar</button>
+                                <button type="button" class="btn-delete saep-inline-danger" data-excluir-indicador="${item.id}">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+        <ul class="saep-list">
+            <li>Turma cadastrada em ${formatarDataParaExibirSaep(resumoBase.dataInicio || "")}</li>
+            <li>${resumoBase.totalAcoes} ação(ões) no plano de ação</li>
+            <li>${resumoBase.totalAvaliacoes} avaliação(ões) registrada(s)</li>
+        </ul>
+    `;
+
+    const form = document.getElementById("formHistoricoIndicadoresSaep");
+    if (!form) {
+        return;
+    }
+
+    form.onsubmit = (event) => {
+        event.preventDefault();
+
+        const registroId = document.getElementById("histRegistroId").value;
+
+        salvarIndicadoresHistoricoDaTurma(codigoTurma, {
+            notaEscola: document.getElementById("histNotaEscola").value,
+            notaSegmento: document.getElementById("histNotaSegmento").value,
+            notaObjetivaSegmento: document.getElementById("histNotaObjetivaSegmento").value,
+            notaPraticaSegmento: document.getElementById("histNotaPraticaSegmento").value,
+            capacidadesCriticas: document.getElementById("histCapacidadesCriticas").value.trim()
+        }, registroId);
+
+        alert("Indicadores gerais salvos com sucesso.");
+        renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase);
+    };
+
+    const botaoNovo = document.getElementById("btnNovoRegistroIndicador");
+    if (botaoNovo) {
+        botaoNovo.onclick = () => {
+            document.getElementById("histRegistroId").value = "";
+            document.getElementById("histNotaEscola").value = "";
+            document.getElementById("histNotaSegmento").value = "";
+            document.getElementById("histNotaObjetivaSegmento").value = "";
+            document.getElementById("histNotaPraticaSegmento").value = "";
+            document.getElementById("histCapacidadesCriticas").value = "";
+        };
+    }
+
+    container.querySelectorAll("[data-editar-indicador]").forEach((botao) => {
+        botao.onclick = () => {
+            const id = botao.getAttribute("data-editar-indicador");
+            const registro = versoesOrdenadas.find((item) => item.id === id);
+            if (!registro) {
+                return;
+            }
+
+            document.getElementById("histRegistroId").value = registro.id;
+            document.getElementById("histNotaEscola").value = registro.notaEscola;
+            document.getElementById("histNotaSegmento").value = registro.notaSegmento;
+            document.getElementById("histNotaObjetivaSegmento").value = registro.notaObjetivaSegmento;
+            document.getElementById("histNotaPraticaSegmento").value = registro.notaPraticaSegmento;
+            document.getElementById("histCapacidadesCriticas").value = registro.capacidadesCriticas || "";
+        };
+    });
+
+    container.querySelectorAll("[data-excluir-indicador]").forEach((botao) => {
+        botao.onclick = () => {
+            const id = botao.getAttribute("data-excluir-indicador");
+            const confirmar = window.confirm("Deseja realmente excluir este registro de indicadores?");
+            if (!confirmar) {
+                return;
+            }
+
+            excluirIndicadorHistoricoDaTurma(codigoTurma, id);
+            renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase);
+        };
+    });
+}
+
+function renderizarSubAbaHistoricoSaep(subAba, codigoTurma, turma, resumoBase) {
+    const abas = document.querySelectorAll("#saepHistoricoTabs .saep-historico-tab");
+    abas.forEach((aba) => {
+        aba.classList.toggle("active", aba.dataset.subaba === subAba);
+    });
+
+    renderizarEstadoHistorico("carregando");
+
+    window.setTimeout(() => {
+        if (subAba === "praticas") {
+            const codigosDoCurso = new Set(obterCodigosTurmasPorCurso(turma.curso));
+            const avaliacoesPraticas = (carregarTurmasDoStorage("saepAvaliacoesPratico") || [])
+                .filter((item) => codigosDoCurso.has(item.codigoTurma));
+            if (avaliacoesPraticas.length === 0) {
+                renderizarEstadoHistorico("vazio", "Nenhuma avaliação prática encontrada para este curso.");
+                return;
+            }
+            renderizarTabelaHistoricoAvaliacoes(codigoTurma, turma.curso, "praticas");
+            return;
+        }
+
+        if (subAba === "objetivas") {
+            const codigosDoCurso = new Set(obterCodigosTurmasPorCurso(turma.curso));
+            const avaliacoesObjetivas = (carregarTurmasDoStorage("saepAvaliacoesObjetivo") || [])
+                .filter((item) => codigosDoCurso.has(item.codigoTurma));
+            if (avaliacoesObjetivas.length === 0) {
+                renderizarEstadoHistorico("vazio", "Nenhuma avaliação objetiva encontrada para este curso.");
+                return;
+            }
+            renderizarTabelaHistoricoAvaliacoes(codigoTurma, turma.curso, "objetivas");
+            return;
+        }
+
+        renderizarFormularioHistoricoSaep(codigoTurma, turma.curso, resumoBase);
+    }, 40);
+}
+
+function configurarHistoricoSaep(codigoTurma, turma, resumoBase) {
+    const abas = document.querySelectorAll("#saepHistoricoTabs .saep-historico-tab");
+    if (abas.length === 0) {
+        return;
+    }
+
+    abas.forEach((aba) => {
+        aba.onclick = () => {
+            renderizarSubAbaHistoricoSaep(aba.dataset.subaba || "saep", codigoTurma, turma, resumoBase);
+        };
+    });
+
+    renderizarSubAbaHistoricoSaep("saep", codigoTurma, turma, resumoBase);
+}
+
 function formatarDataParaExibirSaep(data) {
     if (!data) {
         return "-";
     }
     return formatarDataParaExibir(data);
+}
+
+function calcularPercentualExecucaoGeral(codigoTurma, acoes = []) {
+    const plataformas = obterDadosPlataformasTurma(codigoTurma);
+    const etapas = plataformas?.etapas || [];
+    const totalItens = acoes.length + etapas.length;
+    if (totalItens === 0) {
+        return 0;
+    }
+
+    const concluidasAcoes = acoes.filter((acao) => acao.status === "Concluído").length;
+    const concluidasEtapas = etapas.filter((etapa) => etapa.status === "Concluída").length;
+    return Math.round(((concluidasAcoes + concluidasEtapas) / totalItens) * 100);
+}
+
+function renderizarResumoPedagogicoSaep(codigoTurma) {
+    const dados = carregarDadosSaepDaTurma(codigoTurma);
+    const { datas, acoes, avaliacoesObjetivo, avaliacoesPratico } = dados;
+    const indicadores = calcularIndicadoresSaep({ acoes, avaliacoesObjetivo, avaliacoesPratico });
+    const percentualExecucaoGeral = calcularPercentualExecucaoGeral(codigoTurma, acoes);
+
+    document.getElementById("saepResumoCards").innerHTML = `
+        <div class="saep-metric-card">
+            <span>Média da turma</span>
+            <strong>${indicadores.mediaTurma !== "-" ? indicadores.mediaTurma : "Sem avaliações"}</strong>
+        </div>
+        <div class="saep-metric-card">
+            <span>Meta</span>
+            <strong>${indicadores.meta}</strong>
+        </div>
+        <div class="saep-metric-card">
+            <span>Alunos abaixo da meta</span>
+            <strong>${indicadores.alunosAbaixoMeta}</strong>
+        </div>
+        <div class="saep-metric-card">
+            <span>Execução do plano + etapas</span>
+            <strong>${percentualExecucaoGeral}%</strong>
+        </div>
+    `;
+
+    const alertas = [];
+    if (!datas.saepObjetivo && !datas.saepPratico) {
+        alertas.push("Turma sem data de SAEP cadastrada.");
+    }
+    if (acoes.length === 0) {
+        alertas.push("Sem plano de ação registrado.");
+    }
+    if (indicadores.mediaTurma !== "-" && Number(indicadores.mediaTurma) < indicadores.meta) {
+        alertas.push("Média abaixo da meta.");
+    }
+    if (indicadores.alunosAbaixoMeta > 0) {
+        alertas.push("Há alunos com desempenho abaixo da meta.");
+    }
+    if (indicadores.principais.length > 0) {
+        alertas.push(`Capacidades críticas recorrentes: ${indicadores.principais.map(([nome]) => nome).join(", ")}.`);
+    }
+
+    document.getElementById("saepAlertas").innerHTML = alertas.length > 0
+        ? alertas.map((alerta) => `<div class="saep-alert">${alerta}</div>`).join("")
+        : `<div class="saep-alert saep-alert--ok">Nenhum alerta identificado.</div>`;
 }
 
 function calcularIndicadoresSaep(dados) {
@@ -1055,86 +2374,28 @@ function renderizarDetalhesSaep() {
 
     document.getElementById("btnEditarDataSaep").onclick = () => abrirModalCadastroSaep(codigoTurma);
 
-    const indicadores = calcularIndicadoresSaep({ acoes, avaliacoesObjetivo, avaliacoesPratico });
-    document.getElementById("saepResumoCards").innerHTML = `
-        <div class="saep-metric-card">
-            <span>Média da turma</span>
-            <strong>${indicadores.mediaTurma !== "-" ? indicadores.mediaTurma : "Sem avaliações"}</strong>
-        </div>
-        <div class="saep-metric-card">
-            <span>Meta</span>
-            <strong>${indicadores.meta}</strong>
-        </div>
-        <div class="saep-metric-card">
-            <span>Alunos abaixo da meta</span>
-            <strong>${indicadores.alunosAbaixoMeta}</strong>
-        </div>
-        <div class="saep-metric-card">
-            <span>Execução do plano</span>
-            <strong>${indicadores.percentualExecucao}%</strong>
-        </div>
-    `;
-
-    const alertas = [];
-    if (!datas.saepObjetivo && !datas.saepPratico) {
-        alertas.push("Turma sem data de SAEP cadastrada.");
-    }
-    if (acoes.length === 0) {
-        alertas.push("Sem plano de ação registrado.");
-    }
-    if (indicadores.mediaTurma !== "-" && Number(indicadores.mediaTurma) < indicadores.meta) {
-        alertas.push("Média abaixo da meta.");
-    }
-    if (indicadores.alunosAbaixoMeta > 0) {
-        alertas.push("Há alunos com desempenho abaixo da meta.");
-    }
-    if (indicadores.principais.length > 0) {
-        alertas.push(`Capacidades críticas recorrentes: ${indicadores.principais.map(([nome]) => nome).join(", ")}.`);
-    }
-
-    document.getElementById("saepAlertas").innerHTML = alertas.length > 0
-        ? alertas.map((alerta) => `<div class="saep-alert">${alerta}</div>`).join("")
-        : `<div class="saep-alert saep-alert--ok">Nenhum alerta identificado.</div>`;
+    renderizarResumoPedagogicoSaep(codigoTurma);
 
     document.getElementById("saepGraficoNotas").innerHTML = `<div class="saep-empty-state">Evolução das notas será exibida com os simulados cadastrados.</div>`;
     document.getElementById("saepGraficoCapacidades").innerHTML = `<div class="saep-empty-state">Desempenho por capacidade será exibido ao cadastrar avaliações.</div>`;
     document.getElementById("saepGraficoSituacao").innerHTML = `<div class="saep-empty-state">Distribuição da situação da turma aparecerá aqui.</div>`;
     document.getElementById("saepGraficoPlano").innerHTML = `<div class="saep-empty-state">Andamento do plano de ação aparecerá aqui.</div>`;
 
-    document.getElementById("btnGerenciarRegistros").onclick = () => {
-        document.querySelectorAll(".saep-sidebar__item").forEach((item) => item.classList.toggle("active", item.dataset.aba === "registros"));
-        document.querySelectorAll(".saep-section").forEach((secao) => {
-            secao.style.display = "none";
-        });
-        const secaoAlvo = document.getElementById("saepSectionRegistros");
-        if (secaoAlvo) {
-            secaoAlvo.style.display = "block";
-        }
-        renderizarListaRegistrosSaep(codigoTurma);
-    };
+    configurarHistoricoSaep(codigoTurma, turma, {
+        dataInicio: turma.dataInicio || "",
+        totalAcoes: acoes.length,
+        totalAvaliacoes: avaliacoesObjetivo.length + avaliacoesPratico.length
+    });
 
-    document.getElementById("btnNovoRegistroSaep").onclick = () => abrirModalRegistroSaep("", codigoTurma);
-
-    document.getElementById("saepHistorico").innerHTML = `
-        <ul class="saep-list">
-            <li>Turma cadastrada em ${formatarDataParaExibirSaep(turma.dataInicio || "")}</li>
-            <li>${acoes.length} ação(ões) no plano de ação</li>
-            <li>${avaliacoesObjetivo.length + avaliacoesPratico.length} avaliação(ões) registrada(s)</li>
-        </ul>
-    `;
+    configurarPlataformasSaep(codigoTurma, turma.instrutor);
+    configurarImportacaoSaep(codigoTurma);
+    exibirAbaSaepDetalhes("resumo");
 
     document.querySelectorAll(".saep-sidebar__item").forEach((botao) => {
-        botao.addEventListener("click", () => {
+        botao.onclick = () => {
             const aba = botao.dataset.aba;
-            document.querySelectorAll(".saep-sidebar__item").forEach((item) => item.classList.toggle("active", item === botao));
-            document.querySelectorAll(".saep-section").forEach((secao) => {
-                secao.style.display = "none";
-            });
-            const secaoAlvo = document.getElementById(`saepSection${aba.charAt(0).toUpperCase() + aba.slice(1)}`);
-            if (secaoAlvo) {
-                secaoAlvo.style.display = "block";
-            }
-        });
+            exibirAbaSaepDetalhes(aba);
+        };
     });
 
     document.getElementById("btnNovaAcao").onclick = () => abrirModalAcaoSaep();
@@ -1142,7 +2403,6 @@ function renderizarDetalhesSaep() {
     document.getElementById("btnNovaAvaliacaoPratico").onclick = () => abrirModalAvaliacaoSaep("pratico");
 
     renderizarTabelaPlanoSaep(codigoTurma);
-    renderizarListaRegistrosSaep(codigoTurma);
     renderizarTabelaAvaliacoesSaep(codigoTurma, "objetivo");
     renderizarTabelaAvaliacoesSaep(codigoTurma, "pratico");
 }
@@ -1440,138 +2700,6 @@ function renderizarTurmasSaep() {
     });
 }
 
-function abrirModalRegistroSaep(id = "", codigoTurma = "") {
-    const modal = document.getElementById("modalCadastroRegistroSaep");
-    const form = document.getElementById("formCadastroRegistroSaep");
-    const titulo = document.getElementById("tituloModalRegistroSaep");
-    const idInput = document.getElementById("registroIdSaep");
-    const turmaInput = document.getElementById("registroTurmaSaep");
-    const params = new URLSearchParams(window.location.search);
-    const turmaAtual = codigoTurma || params.get("turma") || "";
-
-    if (modal) {
-        modal.classList.add("active");
-        modal.setAttribute("aria-hidden", "false");
-    }
-
-    if (form) {
-        form.reset();
-    }
-
-    if (titulo) {
-        titulo.textContent = id ? "Editar registro" : "Novo registro";
-    }
-
-    if (idInput) {
-        idInput.value = id;
-    }
-
-    if (turmaInput) {
-        turmaInput.value = turmaAtual;
-    }
-
-    if (id) {
-        const registros = carregarTurmasDoStorage("saepRegistros") || [];
-        const registro = registros.find((item) => item.id === id);
-        if (registro) {
-            document.getElementById("registroTituloSaep").value = registro.titulo || "";
-            document.getElementById("registroTopicoSaep").value = registro.topico || "";
-            document.getElementById("registroDataSaep").value = registro.data || "";
-            document.getElementById("registroStatusSaep").value = registro.status || "Em andamento";
-            document.getElementById("registroDescricaoSaep").value = registro.descricao || "";
-        }
-    }
-}
-
-function fecharModalRegistroSaep() {
-    const modal = document.getElementById("modalCadastroRegistroSaep");
-    if (modal) {
-        modal.classList.remove("active");
-        modal.setAttribute("aria-hidden", "true");
-    }
-}
-
-function salvarRegistroSaep(event) {
-    event.preventDefault();
-
-    const id = document.getElementById("registroIdSaep").value;
-    const codigoTurma = document.getElementById("registroTurmaSaep").value.trim();
-    const registro = {
-        id: id || `${Date.now()}`,
-        codigoTurma,
-        titulo: document.getElementById("registroTituloSaep").value.trim(),
-        topico: document.getElementById("registroTopicoSaep").value.trim(),
-        data: document.getElementById("registroDataSaep").value,
-        status: document.getElementById("registroStatusSaep").value,
-        descricao: document.getElementById("registroDescricaoSaep").value.trim()
-    };
-
-    if (!registro.titulo || !registro.topico || !registro.data || !registro.descricao) {
-        alert("Preencha todos os campos do registro.");
-        return;
-    }
-
-    const registros = carregarTurmasDoStorage("saepRegistros") || [];
-    const indice = registros.findIndex((item) => item.id === registro.id);
-    if (indice >= 0) {
-        registros[indice] = registro;
-    } else {
-        registros.push(registro);
-    }
-
-    salvarTurmasNoStorage(registros, "saepRegistros");
-    fecharModalRegistroSaep();
-    renderizarDetalhesSaep();
-}
-
-function excluirRegistroSaep(id) {
-    const registros = (carregarTurmasDoStorage("saepRegistros") || []).filter((item) => item.id !== id);
-    salvarTurmasNoStorage(registros, "saepRegistros");
-    renderizarDetalhesSaep();
-}
-
-function renderizarListaRegistrosSaep(codigoTurma) {
-    const container = document.getElementById("saepListaRegistros");
-    if (!container) {
-        return;
-    }
-
-    const registros = (carregarTurmasDoStorage("saepRegistros") || []).filter((item) => item.codigoTurma === codigoTurma);
-    if (registros.length === 0) {
-        container.innerHTML = '<div class="saep-empty-state">Nenhum registro cadastrado para esta turma.</div>';
-        return;
-    }
-
-    const agrupado = registros.reduce((acc, registro) => {
-        if (!acc[registro.topico]) {
-            acc[registro.topico] = [];
-        }
-        acc[registro.topico].push(registro);
-        return acc;
-    }, {});
-
-    container.innerHTML = Object.entries(agrupado).map(([topico, itens]) => `
-        <div class="saep-card saep-card--compact">
-            <div class="saep-card__header">
-                <h3>${topico}</h3>
-            </div>
-            <ul class="saep-list">
-                ${itens.map((registro) => `
-                    <li>
-                        <strong>${registro.titulo}</strong>
-                        <span>· ${formatarDataParaExibirSaep(registro.data)} · ${registro.status}</span>
-                        <p>${registro.descricao}</p>
-                        <div class="saep-actions">
-                            <button type="button" class="btn-edit" onclick="abrirModalRegistroSaep('${registro.id}', '${registro.codigoTurma}')">✏️</button>
-                            <button type="button" class="btn-delete" onclick="excluirRegistroSaep('${registro.id}')">🗑️</button>
-                        </div>
-                    </li>
-                `).join("")}
-            </ul>
-        </div>
-    `).join("");
-}
-
 function mostrarAbaSaep(aba, turmaSelecionada = null) {
     const conteudo = document.getElementById("conteudoSaep");
     const botoes = document.querySelectorAll("#painelSaepDetalhes .seeduc-submenu__item");
@@ -1831,6 +2959,15 @@ window.addEventListener("DOMContentLoaded", async () => {
         modalOcorrencia.addEventListener("click", (event) => {
             if (event.target === modalOcorrencia) {
                 fecharModalOcorrencia();
+            }
+        });
+    }
+
+    const modalConsultaFinalizada = document.getElementById("modalConsultaTurmaFinalizada");
+    if (modalConsultaFinalizada) {
+        modalConsultaFinalizada.addEventListener("click", (event) => {
+            if (event.target === modalConsultaFinalizada) {
+                fecharModalConsultaTurmaFinalizada();
             }
         });
     }

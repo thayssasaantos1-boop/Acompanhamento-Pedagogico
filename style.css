@@ -175,6 +175,32 @@ img {
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
+.modal-content--xl {
+    width: min(1100px, 96vw);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.consulta-finalizada__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: #eef5ff;
+    color: #0d4aa6;
+    border: 1px solid #d6e7ff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+}
+
+.consulta-finalizada .form-grid input[disabled],
+.consulta-finalizada .form-grid textarea[disabled],
+.consulta-finalizada .form-grid select[disabled] {
+    background: #f4f7fb;
+    color: #475569;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -547,6 +573,228 @@ img {
     grid-column: 1 / -1;
 }
 
+.saep-historico-tabs {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.saep-historico-tab {
+    background: #f1f5f9;
+    border: 1px solid #dce6f0;
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    cursor: pointer;
+    color: #233;
+}
+
+.saep-historico-tab.active {
+    background: #003da5;
+    color: #fff;
+    border-color: #003da5;
+}
+
+.saep-historico-form {
+    margin-bottom: 1rem;
+}
+
+.saep-historico-intro {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 12px;
+    padding: 0.8rem;
+    margin-bottom: 0.9rem;
+}
+
+.saep-historico-intro__title {
+    color: #0f172a;
+    margin: 0.2rem 0 0.35rem;
+    font-size: 1rem;
+}
+
+.saep-historico-intro .saep-muted + .saep-muted {
+    margin-top: 0.3rem;
+}
+
+.saep-historico-kpis {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-top: 0.55rem;
+}
+
+.saep-historico-chip {
+    display: inline-flex;
+    align-items: center;
+    background: #eef5ff;
+    border: 1px solid #dbe8fb;
+    color: #1f3f74;
+    border-radius: 999px;
+    padding: 0.22rem 0.55rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.saep-historico-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    margin-bottom: 0.8rem;
+}
+
+.saep-historico-versoes {
+    margin-bottom: 1rem;
+}
+
+.saep-historico-form small.saep-muted {
+    display: block;
+    margin-top: 0.35rem;
+}
+
+.saep-historico-loading,
+.saep-historico-empty {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 12px;
+    padding: 1rem;
+    color: #334155;
+}
+
+.saep-historico-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.saep-historico-loading__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0d4aa6;
+    animation: saepPulse 1s ease-in-out infinite;
+}
+
+.saep-historico-empty strong {
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+@keyframes saepPulse {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: scale(0.9);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.saep-plataformas-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.saep-plataformas-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.saep-mural-highlight {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 12px;
+    padding: 0.85rem;
+    margin-bottom: 0.9rem;
+}
+
+.saep-mural-highlight p {
+    margin: 0.45rem 0;
+    color: #334155;
+}
+
+.saep-mural-highlight span {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.saep-mural-list {
+    margin-top: 0.6rem;
+}
+
+.saep-mural-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.saep-mural-list p {
+    margin-top: 0.25rem;
+}
+
+.saep-inline-btn {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.86rem;
+}
+
+.saep-inline-danger {
+    margin-left: 0.35rem;
+}
+
+.saep-icon-btn {
+    border: 1px solid #dce6f0;
+    background: #f8fbff;
+    color: #1f3f74;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.saep-observacao-preview {
+    margin-left: 0.45rem;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.saep-upload-box {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 12px;
+    padding: 0.9rem;
+    margin-top: 0.8rem;
+}
+
+.saep-upload-label {
+    display: block;
+    font-weight: 600;
+    color: #233;
+    margin-bottom: 0.45rem;
+}
+
+.saep-upload-actions {
+    margin-top: 0.7rem;
+}
+
+.saep-upload-note {
+    margin-top: 0.7rem;
+    font-size: 0.9rem;
+}
+
+.saep-upload-history {
+    margin-top: 1rem;
+}
+
 @media (max-width: 800px) {
     .app-shell {
         flex-direction: column;
@@ -637,5 +885,25 @@ img {
 
     .saep-metric-grid {
         grid-template-columns: 1fr;
+    }
+
+    .saep-plataformas-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .saep-historico-tabs {
+        flex-direction: column;
+    }
+
+    .saep-historico-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .saep-observacao-preview {
+        display: block;
+        margin-left: 0;
+        margin-top: 0.4rem;
     }
 }
