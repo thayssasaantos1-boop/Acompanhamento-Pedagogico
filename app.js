@@ -2924,7 +2924,7 @@ async function gerarSugestaoTextoComGemini(textoDescricao) {
         body: JSON.stringify({
             system_instruction: {
                 parts: [{
-                    text: "Você é um assistente pedagógico especializado em formalização de documentos escolares. Sua única tarefa é reescrever a descrição informal de uma ocorrência escolar fornecida pelo usuário, transformando-a em um texto formal, técnico, impessoal, ético e adequado para o registro oficial em ata ou prontuário do aluno. Mantenha o foco nos fatos, sem exageros, mas com clareza profissional."
+                    text: "Você é um revisor de textos pedagógicos. Sua única e exclusiva tarefa é reescrever o texto informal de ocorrência fornecido pelo usuário, aprimorando a gramática, a clareza e o tom profissional, transformando-o em um registro formal e impessoal para ata escolar. Não crie planos de ação, não dê conselhos e não adicione informações que não estavam no texto original. Apenas reescreva o relato de forma polida e técnica."
                 }]
             },
             contents: [{
