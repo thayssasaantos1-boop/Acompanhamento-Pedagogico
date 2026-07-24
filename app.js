@@ -2965,7 +2965,7 @@ async function gerarSugestaoTextoComGemini(promptUsuario) {
         body: JSON.stringify({
             system_instruction: {
                 parts: [{
-                    text: "Você é um assistente pedagógico. Reescreva ocorrências com linguagem clara, respeitosa e orientada para intervenção educacional."
+                    text: "Você é um assistente pedagógico especializado em redação de ocorrências escolares. Sua tarefa é reescrever o texto mantendo os fatos, sem resumir, sem omitir detalhes importantes e com linguagem formal, clara e respeitosa. Retorne apenas o texto final reescrito, em parágrafo corrido, sem títulos, sem listas e sem comentários extras."
                 }]
             },
             contents: [{
@@ -2973,8 +2973,9 @@ async function gerarSugestaoTextoComGemini(promptUsuario) {
                 parts: [{ text: promptUsuario }]
             }],
             generationConfig: {
-                temperature: 0.4,
-                maxOutputTokens: 280
+                temperature: 0.3,
+                topP: 0.9,
+                maxOutputTokens: 700
             }
         })
     });
@@ -3034,7 +3035,7 @@ async function gerarSugestaoTexto() {
 
     assistido.value = "Gerando sugestão com IA...";
 
-    const promptUsuario = `Aluno: ${nomeAluno || "não informado"}\nTipo de ocorrência: ${tipo}\nDescrição: ${descricao}\nSolicitação: gerar um texto de ocorrência pedagógica com encaminhamento.`;
+    const promptUsuario = `Dados da ocorrência:\nAluno: ${nomeAluno || "não informado"}\nTipo: ${tipo}\nTexto original da descrição: ${descricao}\n\nSolicitação obrigatória: reescrever o texto original com correção gramatical, melhor coesão e tom pedagógico-profissional, preservando todos os fatos citados no original. Não resumir, não reduzir para tópicos e não inventar fatos.`;
 
     try {
         const respostaIa = await gerarSugestaoTextoComGemini(promptUsuario);
@@ -3046,7 +3047,7 @@ async function gerarSugestaoTexto() {
         console.warn("Falha ao gerar sugestão com Gemini:", error);
     }
 
-    assistido.value = `Ocorrência ${tipo} registrada para ${nomeAluno || "o aluno"}. Contexto: ${descricao}. Encaminhamento sugerido: acolher o estudante, pactuar metas objetivas e acompanhar a evolução nas próximas aulas.`;
+    assistido.value = `Ocorrência do tipo ${tipo} envolvendo ${nomeAluno || "o aluno"}: ${descricao}. Recomenda-se acompanhamento pedagógico com registro de orientações, alinhamento de expectativas e monitoramento contínuo da evolução do estudante.`;
 }
 
 function salvarOcorrencia() {
