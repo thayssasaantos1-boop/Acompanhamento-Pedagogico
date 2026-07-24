@@ -2910,8 +2910,21 @@ function obterApiKeyGeminiOcorrencia() {
     return chaveConfig;
 }
 
-async function gerarSugestaoTextoComGemini(textoDescricao) {
-    const apiKey = obterApiKeyGeminiOcorrencia();
+function solicitarApiKeyGeminiOcorrencia() {
+    const chaveInformada = window.prompt("Informe sua API Key do Gemini para gerar a sugestão:", "");
+    const chave = (chaveInformada || "").trim();
+
+    if (!chave) {
+        return "";
+    }
+
+    sessionStorage.setItem(GEMINI_KEY_SESSION_STORAGE, chave);
+    localStorage.setItem(GEMINI_KEY_LOCAL_STORAGE, chave);
+    return chave;
+}
+
+async function gerarSugestaoTextoComGemini(textoDescricao, apiKeySobrescrita = "") {
+    const apiKey = (apiKeySobrescrita || obterApiKeyGeminiOcorrencia()).trim();
     if (!apiKey) {
         throw new Error("API Key do Gemini não configurada. Defina APP_SYNC_CONFIG.geminiApiKey em sync-config.js.");
     }
@@ -2940,7 +2953,15 @@ async function gerarSugestaoTextoComGemini(textoDescricao) {
     });
 
     if (!resposta.ok) {
-        throw new Error(`Falha ao consultar Gemini (${resposta.status}).`);
+        let detalheErro = "";
+        try {
+            const corpoErro = await resposta.json();
+            detalheErro = corpoErro?.error?.message || "";
+        } catch (error) {
+            detalheErro = "";
+        }
+
+        throw new Error(`Falha ao consultar Gemini (${resposta.status})${detalheErro ? `: ${detalheErro}` : "."}`);
     }
 
     const dados = await resposta.json();
@@ -2990,16 +3011,33 @@ async function gerarSugestaoTexto() {
         return;
     }
 
+    let apiKey = obterApiKeyGeminiOcorrencia();
+    if (!apiKey) {
+        apiKey = solicitarApiKeyGeminiOcorrencia();
+        if (!apiKey) {
+            assistido.value = "A geração foi cancelada porque a API Key do Gemini não foi informada.";
+            return;
+        }
+    }
+
     assistido.value = "Gerando sugestão com IA...";
 
     try {
-        const respostaIa = await gerarSugestaoTextoComGemini(descricao);
+        const respostaIa = await gerarSugestaoTextoComGemini(descricao, apiKey);
         if (respostaIa) {
             assistido.value = respostaIa;
             return;
         }
     } catch (error) {
         console.warn("Falha ao gerar sugestão com Gemini:", error);
+
+        const mensagemErro = String(error?.message || "").toLowerCase();
+        if (mensagemErro.includes("api key") || mensagemErro.includes("401") || mensagemErro.includes("403")) {
+            sessionStorage.removeItem(GEMINI_KEY_SESSION_STORAGE);
+            localStorage.removeItem(GEMINI_KEY_LOCAL_STORAGE);
+            assistido.value = "A API Key do Gemini parece inválida ou sem permissão. Clique em Gerar sugestão para informar uma nova chave.";
+            return;
+        }
     }
 
     assistido.value = "Não foi possível gerar a sugestão com IA no momento. Revise a conexão e a API Key do Gemini.";
