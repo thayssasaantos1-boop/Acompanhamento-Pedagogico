@@ -2910,7 +2910,7 @@ function obterApiKeyGeminiOcorrencia() {
     return chaveConfig;
 }
 
-async function gerarSugestaoTextoComGemini(promptUsuario) {
+async function gerarSugestaoTextoComGemini(textoDescricao) {
     const apiKey = obterApiKeyGeminiOcorrencia();
     if (!apiKey) {
         throw new Error("API Key do Gemini não configurada. Defina APP_SYNC_CONFIG.geminiApiKey em sync-config.js.");
@@ -2924,12 +2924,12 @@ async function gerarSugestaoTextoComGemini(promptUsuario) {
         body: JSON.stringify({
             system_instruction: {
                 parts: [{
-                    text: "Você é um assistente pedagógico especializado em redação de ocorrências escolares. Sua tarefa é reescrever o texto mantendo os fatos, sem resumir, sem omitir detalhes importantes e com linguagem formal, clara e respeitosa. Retorne apenas o texto final reescrito, em parágrafo corrido, sem títulos, sem listas e sem comentários extras."
+                    text: "Você é um assistente pedagógico especializado em formalização de documentos escolares. Sua única tarefa é reescrever a descrição informal de uma ocorrência escolar fornecida pelo usuário, transformando-a em um texto formal, técnico, impessoal, ético e adequado para o registro oficial em ata ou prontuário do aluno. Mantenha o foco nos fatos, sem exageros, mas com clareza profissional."
                 }]
             },
             contents: [{
                 role: "user",
-                parts: [{ text: promptUsuario }]
+                parts: [{ text: textoDescricao }]
             }],
             generationConfig: {
                 temperature: 0.3,
@@ -2978,8 +2978,6 @@ function fecharModalOcorrencia() {
 }
 
 async function gerarSugestaoTexto() {
-    const nomeAluno = document.getElementById("nomeAlunoOcorrencia").value.trim() || document.getElementById("alunoOcorrencia").value.trim();
-    const tipo = document.getElementById("tipoOcorrencia").value;
     const descricao = document.getElementById("descricaoOcorrencia").value.trim();
     const assistido = document.getElementById("textoAssistido");
 
@@ -2994,10 +2992,8 @@ async function gerarSugestaoTexto() {
 
     assistido.value = "Gerando sugestão com IA...";
 
-    const promptUsuario = `Texto original da descrição da ocorrência:\n${descricao}\n\nContexto adicional:\nAluno: ${nomeAluno || "não informado"}\nTipo: ${tipo}\n\nSolicitação obrigatória: formalize pedagogicamente o texto acima, com correção gramatical, clareza e coesão. Preserve integralmente os fatos já descritos, sem resumo, sem listas e sem inventar informações.`;
-
     try {
-        const respostaIa = await gerarSugestaoTextoComGemini(promptUsuario);
+        const respostaIa = await gerarSugestaoTextoComGemini(descricao);
         if (respostaIa) {
             assistido.value = respostaIa;
             return;
@@ -3006,7 +3002,7 @@ async function gerarSugestaoTexto() {
         console.warn("Falha ao gerar sugestão com Gemini:", error);
     }
 
-    assistido.value = `Descrição formalizada (${tipo}) para ${nomeAluno || "o aluno"}: ${descricao}.`;
+    assistido.value = "Não foi possível gerar a sugestão com IA no momento. Revise a conexão e a API Key do Gemini.";
 }
 
 function salvarOcorrencia() {
