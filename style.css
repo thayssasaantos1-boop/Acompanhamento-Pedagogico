@@ -357,6 +357,59 @@ img {
     font-weight: 600;
 }
 
+.seeduc-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.saep-registros-card {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.saep-registros-lista {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.saep-registro-item {
+    background: #fff;
+    border: 1px solid #dce6f0;
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+}
+
+.saep-registro-item__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+}
+
+.saep-registro-item__turma {
+    color: #003da5;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.saep-registro-item__descricao {
+    color: #334155;
+    margin-bottom: 0.45rem;
+}
+
+.saep-registro-item__data {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
 .seeduc-table th,
 .seeduc-table td {
     vertical-align: middle;

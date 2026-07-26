@@ -14,7 +14,8 @@ const STORAGE_SYNC_STATIC_KEYS = [
     "saepAvaliacoesPratico",
     "saepSimuladosExcel",
     "saepPlataformasDados",
-    "saepHistoricoIndicadores"
+    "saepHistoricoIndicadores",
+    "saepRegistrosGestao"
 ];
 const STORAGE_SYNC_PREFIXES = [
     `${STORAGE_KEY_ALUNOS}_`,
@@ -2945,6 +2946,9 @@ function renderizarTurmasSaep() {
     const tabela = document.getElementById("tabelaTurmasSaep");
     const painel = document.getElementById("painelSaepDetalhes");
     const conteudo = document.getElementById("conteudoSaep");
+    const botaoCadastrarRegistros = document.getElementById("btnCadastrarRegistrosSaep");
+    const containerRegistros = document.getElementById("saepRegistrosGestao");
+    const badgeTotalRegistros = document.getElementById("saepTotalRegistrosBadge");
 
     if (!tabela) {
         return;
@@ -2964,6 +2968,8 @@ function renderizarTurmasSaep() {
     if (conteudo) {
         conteudo.innerHTML = "";
     }
+
+    configurarRegistrosSaepPrincipal(botaoCadastrarRegistros, containerRegistros, badgeTotalRegistros);
 
     const turmas = carregarTurmasDoStorage(STORAGE_KEY);
     if (turmas.length === 0) {
@@ -2998,6 +3004,125 @@ function renderizarTurmasSaep() {
             abrirPaginaDetalhesSaep(botao.dataset.turma);
         });
     });
+}
+
+function carregarRegistrosSaepGestao() {
+    const dados = carregarTurmasDoStorage("saepRegistrosGestao");
+    return Array.isArray(dados) ? dados.filter(Boolean) : [];
+}
+
+function salvarRegistrosSaepGestao(registros) {
+    salvarTurmasNoStorage(Array.isArray(registros) ? registros : [], "saepRegistrosGestao");
+}
+
+function renderizarRegistrosSaepGestao(container, badge) {
+    if (!container) {
+        return;
+    }
+
+    const registros = carregarRegistrosSaepGestao().sort((a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime());
+
+    if (badge) {
+        badge.textContent = `${registros.length} registro${registros.length === 1 ? "" : "s"}`;
+    }
+
+    if (registros.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Nenhum registro cadastrado ainda. Use o botão acima para criar o primeiro.</div>';
+        return;
+    }
+
+    container.innerHTML = registros.map((registro) => `
+        <article class="saep-registro-item">
+            <div class="saep-registro-item__head">
+                <strong>${registro.titulo}</strong>
+                <span class="saep-badge">${registro.tipo}</span>
+            </div>
+            <p class="saep-registro-item__turma">Turma ${registro.codigoTurma || "-"}</p>
+            <p class="saep-registro-item__descricao">${registro.descricao}</p>
+            <span class="saep-registro-item__data">${registro.criadoEm ? new Date(registro.criadoEm).toLocaleString("pt-BR") : "-"}</span>
+        </article>
+    `).join("");
+}
+
+function popularSelectTurmasRegistrosSaep(select) {
+    if (!select) {
+        return;
+    }
+
+    const turmas = carregarTurmasDoStorage(STORAGE_KEY);
+    select.innerHTML = turmas.length === 0
+        ? '<option value="">Nenhuma turma cadastrada</option>'
+        : turmas.map((turma) => `<option value="${turma.codigoTurma}">${turma.codigoTurma} - ${turma.curso}</option>`).join("");
+}
+
+function configurarRegistrosSaepPrincipal(botao, container, badge) {
+    const modal = document.getElementById("modalRegistroSaep");
+    const form = document.getElementById("formRegistroSaep");
+    const selectTurma = document.getElementById("registroTurmaSaep");
+    const selectTipo = document.getElementById("registroTipoSaep");
+    const campoTitulo = document.getElementById("registroTituloSaep");
+    const campoDescricao = document.getElementById("registroDescricaoSaep");
+    const botaoCancelar = document.getElementById("btnCancelarRegistroSaep");
+
+    if (!botao || !container || !badge || !modal || !form || !selectTurma || !selectTipo || !campoTitulo || !campoDescricao || !botaoCancelar) {
+        renderizarRegistrosSaepGestao(container, badge);
+        return;
+    }
+
+    popularSelectTurmasRegistrosSaep(selectTurma);
+    renderizarRegistrosSaepGestao(container, badge);
+
+    botao.onclick = () => {
+        popularSelectTurmasRegistrosSaep(selectTurma);
+        form.reset();
+        if (selectTipo) {
+            selectTipo.value = "Plano de ação";
+        }
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+    };
+
+    botaoCancelar.onclick = () => {
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
+    };
+
+    form.onsubmit = (event) => {
+        event.preventDefault();
+
+        const codigoTurma = selectTurma.value.trim();
+        const tipo = selectTipo.value.trim();
+        const titulo = campoTitulo.value.trim();
+        const descricao = campoDescricao.value.trim();
+
+        if (!codigoTurma || !tipo || !titulo || !descricao) {
+            alert("Preencha todos os campos do registro SAEP.");
+            return;
+        }
+
+        const registros = carregarRegistrosSaepGestao();
+        registros.push({
+            id: `${Date.now()}`,
+            codigoTurma,
+            tipo,
+            titulo,
+            descricao,
+            criadoEm: new Date().toISOString()
+        });
+
+        salvarRegistrosSaepGestao(registros);
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
+        renderizarRegistrosSaepGestao(container, badge);
+        form.reset();
+    };
+
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            modal.classList.remove("active");
+            modal.setAttribute("aria-hidden", "true");
+        }
+    };
 }
 
 function mostrarAbaSaep(aba, turmaSelecionada = null) {

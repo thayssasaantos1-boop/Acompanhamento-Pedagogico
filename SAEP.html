@@ -38,6 +38,15 @@
                     </div>
                     <div class="seeduc-toolbar">
                         <span class="seeduc-badge">Turmas em acompanhamento</span>
+                        <button type="button" id="btnCadastrarRegistrosSaep" class="o-container__turmas__cadastrar">Cadastrar registros SAEP</button>
+                    </div>
+
+                    <div class="saep-registros-card">
+                        <div class="saep-card__header">
+                            <h3>Área para gestão de registro</h3>
+                            <span class="saep-badge" id="saepTotalRegistrosBadge">0 registros</span>
+                        </div>
+                        <div id="saepRegistrosGestao" class="saep-registros-lista"></div>
                     </div>
 
                     <div class="table-scroll">
@@ -88,6 +97,41 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalCadastroSaep()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalRegistroSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Cadastrar registros SAEP</h3>
+            <form id="formRegistroSaep">
+                <div class="form-grid">
+                    <label>
+                        Turma
+                        <select id="registroTurmaSaep" required></select>
+                    </label>
+                    <label>
+                        Tipo de registro
+                        <select id="registroTipoSaep" required>
+                            <option value="Plano de ação">Plano de ação</option>
+                            <option value="Acompanhamento">Acompanhamento</option>
+                            <option value="Alerta">Alerta</option>
+                            <option value="Observação">Observação</option>
+                        </select>
+                    </label>
+                    <label class="saep-full-width">
+                        Título
+                        <input id="registroTituloSaep" type="text" required placeholder="Ex.: Reforço da turma no módulo 1">
+                    </label>
+                    <label class="saep-full-width">
+                        Descrição
+                        <textarea id="registroDescricaoSaep" rows="5" required placeholder="Descreva o registro SAEP..."></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarRegistroSaep">Cancelar</button>
                 </div>
             </form>
         </div>
