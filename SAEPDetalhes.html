@@ -98,24 +98,6 @@
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoObjetivo">Nova avaliação</button>
                 </div>
                 <div id="saepTabelaObjetivos"></div>
-                <div class="saep-card saep-import-card">
-                    <div class="saep-card__header">
-                        <h3>Importação de resultado</h3>
-                    </div>
-                    <p class="saep-muted">Importe o Excel de desempenho do SAEP para manter o histórico de simulados da turma.</p>
-                    <div class="saep-upload-box">
-                        <label for="saepUploadExcel" class="saep-upload-label">Arquivo de desempenho (Excel)</label>
-                        <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
-                        <div class="saep-upload-actions">
-                            <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
-                        </div>
-                        <p class="saep-muted saep-upload-note">
-                            Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
-                            D. por Competência - Detalhes e Desempenho Individual - Detalhe.
-                        </p>
-                    </div>
-                    <div id="saepHistoricoImports" class="saep-upload-history"></div>
-                </div>
             </section>
 
             <section id="saepSectionPraticos" class="saep-section" style="display:none;">
@@ -255,14 +237,29 @@
                         Observações
                         <textarea id="avaliacaoObservacoesSaep" rows="3"></textarea>
                     </label>
-                    <label class="saep-full-width">
+                    <label id="avaliacaoGrupoAlunosSaep" class="saep-full-width">
                         Alunos com baixo desempenho (um por linha: nome | nota | capacidades)
                         <textarea id="avaliacaoAlunosSaep" rows="4" placeholder="Ex.: Ana | 5.0 | leitura, interpretação"></textarea>
                     </label>
-                    <label class="saep-full-width">
+                    <label id="avaliacaoGrupoCapacidadesSaep" class="saep-full-width">
                         Capacidades avaliadas (uma por linha: capacidade | nota | crítica/atenção/adequada)
                         <textarea id="avaliacaoCapacidadesSaep" rows="4" placeholder="Ex.: Compreensão leitora | 6.0 | atenção"></textarea>
                     </label>
+                    <div id="avaliacaoImportacaoObjetivo" class="saep-full-width saep-import-box-inline" style="display:none;">
+                        <p class="saep-muted">Se preferir, importe o Excel do SAEP por aqui para preencher automaticamente a tabela de simulados objetivos.</p>
+                        <div class="saep-upload-box">
+                            <label for="saepUploadExcel" class="saep-upload-label">Arquivo de desempenho (Excel)</label>
+                            <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
+                            <div class="saep-upload-actions">
+                                <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
+                            </div>
+                            <p class="saep-muted saep-upload-note">
+                                Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
+                                D. por Competência - Detalhes e Desempenho Individual - Detalhe.
+                            </p>
+                        </div>
+                        <div id="saepHistoricoImports" class="saep-upload-history"></div>
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
@@ -361,6 +358,23 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarEtapasAcesso">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalObservacaoEtapa" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Observações da etapa</h3>
+            <form id="formObservacaoEtapa">
+                <input type="hidden" id="observacaoEtapaId" value="">
+                <label class="saep-full-width">
+                    Observações
+                    <textarea id="observacaoEtapaTexto" rows="6" placeholder="Digite as observações desta etapa..."></textarea>
+                </label>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarObservacaoEtapa">Cancelar</button>
                 </div>
             </form>
         </div>

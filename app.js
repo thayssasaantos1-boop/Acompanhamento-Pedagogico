@@ -1462,17 +1462,7 @@ function renderizarTabelaEtapasAcesso(codigoTurma) {
                 return;
             }
 
-            const texto = window.prompt("Digite as observações desta etapa:", etapa.observacoes || "");
-            if (texto === null) {
-                return;
-            }
-
-            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
-                ...dadosTurma,
-                etapas: dadosTurma.etapas.map((item) => item.id === etapaId ? { ...item, observacoes: texto.trim() } : item)
-            }));
-
-            renderizarTabelaEtapasAcesso(codigoTurma);
+            abrirModalObservacaoEtapa(codigoTurma, etapa);
         };
     });
 
@@ -1492,6 +1482,55 @@ function renderizarTabelaEtapasAcesso(codigoTurma) {
             renderizarTabelaEtapasAcesso(codigoTurma);
         };
     });
+}
+
+function abrirModalObservacaoEtapa(codigoTurma, etapa) {
+    const modal = document.getElementById("modalObservacaoEtapa");
+    const campoId = document.getElementById("observacaoEtapaId");
+    const campoTexto = document.getElementById("observacaoEtapaTexto");
+    const form = document.getElementById("formObservacaoEtapa");
+    const botaoCancelar = document.getElementById("btnCancelarObservacaoEtapa");
+
+    if (!modal || !campoId || !campoTexto || !form || !botaoCancelar) {
+        return;
+    }
+
+    campoId.value = etapa.id;
+    campoTexto.value = etapa.observacoes || "";
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+
+    botaoCancelar.onclick = () => fecharModalObservacaoEtapa();
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            fecharModalObservacaoEtapa();
+        }
+    };
+
+    form.onsubmit = (event) => {
+        event.preventDefault();
+
+        const etapaId = campoId.value;
+        const texto = campoTexto.value.trim();
+        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+            ...dadosTurma,
+            etapas: dadosTurma.etapas.map((item) => item.id === etapaId ? { ...item, observacoes: texto } : item)
+        }));
+
+        fecharModalObservacaoEtapa();
+        renderizarTabelaEtapasAcesso(codigoTurma);
+    };
+}
+
+function fecharModalObservacaoEtapa() {
+    const modal = document.getElementById("modalObservacaoEtapa");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
 }
 
 function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
@@ -2042,6 +2081,33 @@ function resumirLinhaSaep(linha, limite = 140) {
     return `${texto.slice(0, limite - 1)}…`;
 }
 
+function obterLimiteSaepPorEscala(valor, limitePercentual) {
+    const numero = Number(valor || 0);
+
+    if (!Number.isFinite(numero)) {
+        return limitePercentual;
+    }
+
+    if (numero <= 1) {
+        return limitePercentual / 100;
+    }
+
+    if (numero <= 10) {
+        return limitePercentual / 10;
+    }
+
+    return limitePercentual;
+}
+
+function estaAbaixoDoLimiteSaep(valor, limitePercentual) {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero)) {
+        return false;
+    }
+
+    return numero < obterLimiteSaepPorEscala(numero, limitePercentual);
+}
+
 function limparRegistrosImportadosSaep(codigoTurma) {
     ["saepAcoes", "saepAvaliacoesObjetivo", "saepAvaliacoesPratico"].forEach((storageKey) => {
         const registros = carregarTurmasDoStorage(storageKey) || [];
@@ -2066,36 +2132,6 @@ function gerarRegistrosImportacaoSaep(codigoTurma, planilhas, importacaoId) {
     const detalhes = Array.isArray(planilhas.detalhes) ? planilhas.detalhes : [];
     const individual = Array.isArray(planilhas.individual) ? planilhas.individual : [];
 
-    const criarAvaliacaoSaep = (linha, tipo, indice, origem) => {
-        const nomeAluno = extrairNomeAlunoSaep(linha);
-        const nota = extrairNumeroDaLinhaSaep(linha, [/nota/i, /m[eé]dia/i, /resultado/i, /score/i, /pontos?/i]);
-        const capacidades = extrairCapacidadesSaep(linha);
-        const descricao = resumirLinhaSaep(linha);
-        const data = extrairDataSaep(linha) || new Date().toISOString().slice(0, 10);
-
-        return {
-            id: `${importacaoId}_${tipo}_${indice}`,
-            codigoTurma,
-            tipo,
-            data,
-            notaMedia: nota !== null ? nota.toFixed(1) : "",
-            observacoes: descricao,
-            alunosBaixoDesempenho: nomeAluno ? [{
-                nome: nomeAluno,
-                nota: nota !== null ? nota.toFixed(1) : "-",
-                capacidades: capacidades.join(", ")
-            }] : [],
-            capacidades: capacidades.map((capacidade) => ({
-                capacidade,
-                nota: nota !== null ? nota.toFixed(1) : "",
-                situacao: nota !== null && nota < 7 ? "crítica" : "adequada"
-            })),
-            origem: "importacao",
-            importacaoId,
-            fonte: origem
-        };
-    };
-
     const criarAcaoSaep = (linha, indice) => {
         const tituloBase = obterValorPorPadroesSaep(linha, [/^ação$/i, /acao/i, /t[ií]tulo/i, /item/i, /descri/i]);
         const data = extrairDataSaep(linha) || new Date().toISOString().slice(0, 10);
@@ -2114,14 +2150,62 @@ function gerarRegistrosImportacaoSaep(codigoTurma, planilhas, importacaoId) {
         };
     };
 
+    const criarResumoImportado = (linhasAvaliacao, linhasCapacidade, tipo, origem) => {
+        const registrosAvaliacao = linhasAvaliacao.map((linha) => ({
+            nome: extrairNomeAlunoSaep(linha),
+            nota: extrairNumeroDaLinhaSaep(linha, [/nota/i, /m[eé]dia/i, /resultado/i, /score/i, /pontos?/i]),
+            capacidades: extrairCapacidadesSaep(linha)
+        })).filter((item) => item.nota !== null);
+
+        const alunosBaixoDesempenho = registrosAvaliacao
+            .filter((item) => item.nome && estaAbaixoDoLimiteSaep(item.nota, 65))
+            .map((item) => ({
+                nome: item.nome,
+                nota: Number(item.nota).toFixed(1),
+                capacidades: item.capacidades.join(", ")
+            }));
+
+        const capacidades = linhasCapacidade.flatMap((linha) => {
+            const nota = extrairNumeroDaLinhaSaep(linha, [/nota/i, /m[eé]dia/i, /resultado/i, /score/i, /pontos?/i]);
+            return extrairCapacidadesSaep(linha).map((capacidade) => ({
+                capacidade,
+                nota,
+                situacao: nota !== null && estaAbaixoDoLimiteSaep(nota, 70) ? "crítica" : "adequada"
+            }));
+        }).filter((item) => item.nota !== null && estaAbaixoDoLimiteSaep(item.nota, 70));
+
+        const media = registrosAvaliacao.length > 0
+            ? (registrosAvaliacao.reduce((total, item) => total + Number(item.nota || 0), 0) / registrosAvaliacao.length).toFixed(1)
+            : "";
+        const data = extrairDataSaep(linhasAvaliacao[0] || linhasCapacidade[0] || {}) || new Date().toISOString().slice(0, 10);
+
+        return {
+            id: `${importacaoId}_${tipo}_resumo`,
+            codigoTurma,
+            tipo,
+            data,
+            notaMedia: media,
+            observacoes: `Importação ${origem}. ${alunosBaixoDesempenho.length} aluno(s) abaixo de 65% e ${capacidades.length} capacidade(s) abaixo de 70%.`,
+            alunosBaixoDesempenho,
+            capacidades,
+            origem: "importacao",
+            importacaoId,
+            fonte: origem
+        };
+    };
+
     const acoes = itens.map((linha, indice) => criarAcaoSaep(linha, indice));
     const objetivosBase = cruzamento.length > 0 ? cruzamento : individual;
     const praticosBase = detalhes.length > 0 ? detalhes : individual;
 
     return {
         acoes,
-        objetivos: objetivosBase.map((linha, indice) => criarAvaliacaoSaep(linha, "objetivo", indice, "Cruzamento/Individual")),
-        praticos: praticosBase.map((linha, indice) => criarAvaliacaoSaep(linha, "pratico", indice, "Detalhes/Individual"))
+        objetivos: objetivosBase.length > 0 || itens.length > 0
+            ? [criarResumoImportado(objetivosBase, [...itens, ...detalhes], "objetivo", "Cruzamento/Individual")]
+            : [],
+        praticos: praticosBase.length > 0
+            ? [criarResumoImportado(praticosBase, [...detalhes, ...itens], "pratico", "Detalhes/Individual")]
+            : []
     };
 }
 
@@ -2138,7 +2222,9 @@ async function processarImportacaoSaepDaTurma(codigoTurma) {
         await importarArquivoDesempenhoSaep(codigoTurma, arquivo);
         inputArquivo.value = "";
         renderizarHistoricoImportacaoSaep(codigoTurma);
-        alert("Arquivo importado com sucesso. Histórico atualizado para a turma.");
+        fecharModalAvaliacaoSaep();
+        renderizarDetalhesSaep();
+        alert("Arquivo importado com sucesso. A tabela de simulados foi atualizada com a análise do SAEP.");
     } catch (error) {
         console.error("Erro ao importar arquivo SAEP:", error);
         alert(error.message || "Não foi possível importar o arquivo.");
@@ -3100,6 +3186,9 @@ function abrirModalAvaliacaoSaep(tipo = "objetivo") {
     const titulo = document.getElementById("tituloModalAvaliacaoSaep");
     const tipoInput = document.getElementById("avaliacaoTipoSaep");
     const turmaInput = document.getElementById("avaliacaoTurmaSaep");
+    const grupoAlunos = document.getElementById("avaliacaoGrupoAlunosSaep");
+    const grupoCapacidades = document.getElementById("avaliacaoGrupoCapacidadesSaep");
+    const grupoImportacaoObjetivo = document.getElementById("avaliacaoImportacaoObjetivo");
     const params = new URLSearchParams(window.location.search);
     const codigoTurma = params.get("turma");
 
@@ -3123,6 +3212,21 @@ function abrirModalAvaliacaoSaep(tipo = "objetivo") {
     if (turmaInput) {
         turmaInput.value = codigoTurma || "";
     }
+
+    const ehObjetivo = tipo === "objetivo";
+    if (grupoAlunos) {
+        grupoAlunos.style.display = ehObjetivo ? "none" : "block";
+    }
+    if (grupoCapacidades) {
+        grupoCapacidades.style.display = ehObjetivo ? "none" : "block";
+    }
+    if (grupoImportacaoObjetivo) {
+        grupoImportacaoObjetivo.style.display = ehObjetivo ? "block" : "none";
+    }
+
+    if (ehObjetivo && codigoTurma) {
+        configurarImportacaoSaep(codigoTurma);
+    }
 }
 
 function fecharModalAvaliacaoSaep() {
@@ -3145,14 +3249,14 @@ function salvarAvaliacaoSaep(event) {
         data: document.getElementById("avaliacaoDataSaep").value,
         notaMedia: document.getElementById("avaliacaoNotaSaep").value,
         observacoes: document.getElementById("avaliacaoObservacoesSaep").value.trim(),
-        alunosBaixoDesempenho: (document.getElementById("avaliacaoAlunosSaep").value || "").split("\n").filter(Boolean).map((linha) => {
+        alunosBaixoDesempenho: tipo === "pratico" ? (document.getElementById("avaliacaoAlunosSaep").value || "").split("\n").filter(Boolean).map((linha) => {
             const [nome, nota, capacidades] = linha.split("|").map((item) => item.trim());
             return { nome, nota, capacidades };
-        }),
-        capacidades: (document.getElementById("avaliacaoCapacidadesSaep").value || "").split("\n").filter(Boolean).map((linha) => {
+        }) : [],
+        capacidades: tipo === "pratico" ? (document.getElementById("avaliacaoCapacidadesSaep").value || "").split("\n").filter(Boolean).map((linha) => {
             const [capacidade, nota, situacao] = linha.split("|").map((item) => item.trim());
             return { capacidade, nota, situacao: situacao || "atenção" };
-        })
+        }) : []
     };
 
     const storageKey = tipo === "pratico" ? "saepAvaliacoesPratico" : "saepAvaliacoesObjetivo";
@@ -3297,7 +3401,6 @@ function renderizarRegistrosSaepGestao(container, badge) {
                     <li class="saep-registro-item">
                         <div class="saep-registro-item__head">
                             <strong>${registro.titulo}</strong>
-                            <span class="saep-badge">${registro.tipo}</span>
                         </div>
                         <p class="saep-registro-item__turma">Turma ${registro.codigoTurma || "-"}</p>
                         <p class="saep-registro-item__descricao">${registro.descricao}</p>
@@ -3324,12 +3427,11 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
     const modal = document.getElementById("modalRegistroSaep");
     const form = document.getElementById("formRegistroSaep");
     const selectTurma = document.getElementById("registroTurmaSaep");
-    const selectTipo = document.getElementById("registroTipoSaep");
     const campoTitulo = document.getElementById("registroTituloSaep");
     const campoDescricao = document.getElementById("registroDescricaoSaep");
     const botaoCancelar = document.getElementById("btnCancelarRegistroSaep");
 
-    if (!botao || !container || !badge || !modal || !form || !selectTurma || !selectTipo || !campoTitulo || !campoDescricao || !botaoCancelar) {
+    if (!botao || !container || !badge || !modal || !form || !selectTurma || !campoTitulo || !campoDescricao || !botaoCancelar) {
         renderizarRegistrosSaepGestao(container, badge);
         return;
     }
@@ -3340,9 +3442,6 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
     botao.onclick = () => {
         popularSelectTurmasRegistrosSaep(selectTurma);
         form.reset();
-        if (selectTipo) {
-            selectTipo.value = "Plano de ação";
-        }
         modal.classList.add("active");
         modal.setAttribute("aria-hidden", "false");
     };
@@ -3356,11 +3455,10 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
         event.preventDefault();
 
         const codigoTurma = selectTurma.value.trim();
-        const tipo = selectTipo.value.trim();
         const titulo = campoTitulo.value.trim();
         const descricao = campoDescricao.value.trim();
 
-        if (!codigoTurma || !tipo || !titulo || !descricao) {
+        if (!codigoTurma || !titulo || !descricao) {
             alert("Preencha todos os campos do registro SAEP.");
             return;
         }
@@ -3369,7 +3467,6 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
         registros.push({
             id: `${Date.now()}`,
             codigoTurma,
-            tipo,
             titulo,
             descricao,
             criadoEm: new Date().toISOString()
