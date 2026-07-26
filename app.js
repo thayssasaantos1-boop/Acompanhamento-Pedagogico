@@ -1776,9 +1776,15 @@ async function importarArquivoDesempenhoSaep(codigoTurma, arquivo) {
 
     const historico = carregarHistoricoImportacaoSaep();
     const historicoTurma = Array.isArray(historico[codigoTurma]) ? historico[codigoTurma] : [];
+    const analise = gerarAnaliseImportacaoSaep({ cruzamento, itens, detalhes, individual });
+    const importacaoId = `${Date.now()}`;
+    const registrosImportados = gerarRegistrosImportacaoSaep(codigoTurma, { cruzamento, itens, detalhes, individual }, importacaoId);
+
+    limparRegistrosImportadosSaep(codigoTurma);
+    salvarRegistrosImportadosSaep(codigoTurma, registrosImportados);
 
     historicoTurma.push({
-        id: `${Date.now()}`,
+        id: importacaoId,
         codigoTurma,
         nomeArquivo: arquivo.name,
         importadoEm: new Date().toISOString(),
@@ -1788,6 +1794,7 @@ async function importarArquivoDesempenhoSaep(codigoTurma, arquivo) {
             detalhes: detalhes.length,
             individual: individual.length
         },
+        analise,
         dados: {
             cruzamento,
             itens,
@@ -1798,6 +1805,267 @@ async function importarArquivoDesempenhoSaep(codigoTurma, arquivo) {
 
     historico[codigoTurma] = historicoTurma;
     salvarHistoricoImportacaoSaep(historico);
+}
+
+function normalizarTextoSaep(valor) {
+    return String(valor ?? "").trim();
+}
+
+function ehNumeroSaep(valor) {
+    const texto = normalizarTextoSaep(valor).replace(",", ".");
+    return texto !== "" && !Number.isNaN(Number(texto));
+}
+
+function converterNumeroSaep(valor) {
+    if (!ehNumeroSaep(valor)) {
+        return null;
+    }
+
+    const numero = Number(String(valor).replace(",", "."));
+    return Number.isFinite(numero) ? numero : null;
+}
+
+function obterValorPorPadroesSaep(linha, padroes) {
+    if (!linha || typeof linha !== "object") {
+        return "";
+    }
+
+    for (const [chave, valor] of Object.entries(linha)) {
+        if (padroes.some((padrao) => padrao.test(chave)) && normalizarTextoSaep(valor)) {
+            return normalizarTextoSaep(valor);
+        }
+    }
+
+    return "";
+}
+
+function extrairNumeroDaLinhaSaep(linha, padroes = []) {
+    if (!linha || typeof linha !== "object") {
+        return null;
+    }
+
+    for (const [chave, valor] of Object.entries(linha)) {
+        const numero = converterNumeroSaep(valor);
+        if (numero !== null && (padroes.length === 0 || padroes.some((padrao) => padrao.test(chave)))) {
+            return numero;
+        }
+    }
+
+    return null;
+}
+
+function extrairNomeAlunoSaep(linha) {
+    return obterValorPorPadroesSaep(linha, [/^aluno$/i, /^nome$/i, /estudante/i, /discente/i]);
+}
+
+function extrairCapacidadesSaep(linha) {
+    const texto = obterValorPorPadroesSaep(linha, [/capacidade/i, /compet[eê]ncia/i, /habilidade/i, /descri/i, /item/i]);
+    if (!texto) {
+        return [];
+    }
+
+    return texto.split(/[;,\n]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function marcarSePareceCriticoSaep(linha) {
+    const textoLinha = Object.values(linha || {})
+        .map((valor) => normalizarTextoSaep(valor).toLowerCase())
+        .join(" ");
+
+    return /cr[ií]tic|aten[cç][aã]o|baixo|abaixo|risco|insuficiente|reprov/i.test(textoLinha);
+}
+
+function gerarAnaliseImportacaoSaep(planilhas) {
+    const cruzamento = Array.isArray(planilhas.cruzamento) ? planilhas.cruzamento : [];
+    const itens = Array.isArray(planilhas.itens) ? planilhas.itens : [];
+    const detalhes = Array.isArray(planilhas.detalhes) ? planilhas.detalhes : [];
+    const individual = Array.isArray(planilhas.individual) ? planilhas.individual : [];
+    const todas = [...cruzamento, ...itens, ...detalhes, ...individual];
+    const alunos = new Set();
+    const notas = [];
+    const capacidadesCriticas = new Map();
+    const alertas = [];
+
+    todas.forEach((linha) => {
+        const nomeAluno = extrairNomeAlunoSaep(linha);
+        if (nomeAluno) {
+            alunos.add(nomeAluno);
+        }
+
+        const nota = extrairNumeroDaLinhaSaep(linha, [/nota/i, /m[eé]dia/i, /resultado/i, /score/i, /pontos?/i]);
+        if (nota !== null) {
+            notas.push(nota);
+        }
+
+        extrairCapacidadesSaep(linha).forEach((capacidade) => {
+            const chave = capacidade.toLowerCase();
+            const atual = capacidadesCriticas.get(chave) || { nome: capacidade, total: 0 };
+            atual.total += marcarSePareceCriticoSaep(linha) ? 1 : 0;
+            capacidadesCriticas.set(chave, atual);
+        });
+    });
+
+    const mediaGeral = notas.length > 0
+        ? (notas.reduce((soma, item) => soma + item, 0) / notas.length).toFixed(1)
+        : "-";
+
+    const abaixoMeta = notas.filter((nota) => nota < 7).length;
+    const principais = Array.from(capacidadesCriticas.values())
+        .filter((item) => item.total > 0)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 3);
+
+    if (individual.length === 0 && notas.length === 0) {
+        alertas.push("O arquivo foi importado, mas não foi possível identificar notas ou alunos nas abas analisadas.");
+    }
+
+    if (abaixoMeta > 0) {
+        alertas.push(`${abaixoMeta} registro(s) ficaram abaixo da meta de 7,0.`);
+    }
+
+    if (principais.length > 0) {
+        alertas.push(`Capacidades críticas recorrentes: ${principais.map((item) => item.nome).join(", ")}.`);
+    }
+
+    const sugestoesPlano = [];
+    if (abaixoMeta > 0) {
+        sugestoesPlano.push("Reforçar intervenção pedagógica para os alunos abaixo da meta.");
+    }
+    if (principais.length > 0) {
+        sugestoesPlano.push("Priorizar as capacidades mais críticas no plano de ação.");
+    }
+    if (individual.length > 0) {
+        sugestoesPlano.push("Usar a aba Desempenho Individual para acompanhar a evolução de cada estudante.");
+    }
+    if (sugestoesPlano.length === 0) {
+        sugestoesPlano.push("Cadastrar avaliações e ações para alimentar a análise automaticamente.");
+    }
+
+    return {
+        totais: {
+            cruzamento: cruzamento.length,
+            itens: itens.length,
+            detalhes: detalhes.length,
+            individual: individual.length
+        },
+        totalAlunos: alunos.size,
+        mediaGeral,
+        alunosAbaixoMeta: abaixoMeta,
+        capacidadesCriticas: principais,
+        alertas,
+        sugestoesPlano
+    };
+}
+
+function obterUltimaAnaliseImportacaoSaep(codigoTurma) {
+    const historicoTurma = obterHistoricoImportacaoTurmaSaep(codigoTurma);
+    if (historicoTurma.length === 0) {
+        return null;
+    }
+
+    return historicoTurma[historicoTurma.length - 1]?.analise || null;
+}
+
+function extrairDataSaep(linha) {
+    const valor = obterValorPorPadroesSaep(linha, [/^data$/i, /data/i, /dt/i, /date/i]);
+    return valor || "";
+}
+
+function resumirLinhaSaep(linha, limite = 140) {
+    const texto = Object.values(linha || {})
+        .map((valor) => normalizarTextoSaep(valor))
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(" · ");
+
+    if (texto.length <= limite) {
+        return texto;
+    }
+
+    return `${texto.slice(0, limite - 1)}…`;
+}
+
+function limparRegistrosImportadosSaep(codigoTurma) {
+    ["saepAcoes", "saepAvaliacoesObjetivo", "saepAvaliacoesPratico"].forEach((storageKey) => {
+        const registros = carregarTurmasDoStorage(storageKey) || [];
+        const filtrados = registros.filter((item) => !(item?.codigoTurma === codigoTurma && item?.origem === "importacao"));
+        salvarTurmasNoStorage(filtrados, storageKey);
+    });
+}
+
+function salvarRegistrosImportadosSaep(codigoTurma, registrosImportados) {
+    const acoes = carregarTurmasDoStorage("saepAcoes") || [];
+    const avaliacoesObjetivo = carregarTurmasDoStorage("saepAvaliacoesObjetivo") || [];
+    const avaliacoesPratico = carregarTurmasDoStorage("saepAvaliacoesPratico") || [];
+
+    salvarTurmasNoStorage([...acoes, ...registrosImportados.acoes], "saepAcoes");
+    salvarTurmasNoStorage([...avaliacoesObjetivo, ...registrosImportados.objetivos], "saepAvaliacoesObjetivo");
+    salvarTurmasNoStorage([...avaliacoesPratico, ...registrosImportados.praticos], "saepAvaliacoesPratico");
+}
+
+function gerarRegistrosImportacaoSaep(codigoTurma, planilhas, importacaoId) {
+    const cruzamento = Array.isArray(planilhas.cruzamento) ? planilhas.cruzamento : [];
+    const itens = Array.isArray(planilhas.itens) ? planilhas.itens : [];
+    const detalhes = Array.isArray(planilhas.detalhes) ? planilhas.detalhes : [];
+    const individual = Array.isArray(planilhas.individual) ? planilhas.individual : [];
+
+    const criarAvaliacaoSaep = (linha, tipo, indice, origem) => {
+        const nomeAluno = extrairNomeAlunoSaep(linha);
+        const nota = extrairNumeroDaLinhaSaep(linha, [/nota/i, /m[eé]dia/i, /resultado/i, /score/i, /pontos?/i]);
+        const capacidades = extrairCapacidadesSaep(linha);
+        const descricao = resumirLinhaSaep(linha);
+        const data = extrairDataSaep(linha) || new Date().toISOString().slice(0, 10);
+
+        return {
+            id: `${importacaoId}_${tipo}_${indice}`,
+            codigoTurma,
+            tipo,
+            data,
+            notaMedia: nota !== null ? nota.toFixed(1) : "",
+            observacoes: descricao,
+            alunosBaixoDesempenho: nomeAluno ? [{
+                nome: nomeAluno,
+                nota: nota !== null ? nota.toFixed(1) : "-",
+                capacidades: capacidades.join(", ")
+            }] : [],
+            capacidades: capacidades.map((capacidade) => ({
+                capacidade,
+                nota: nota !== null ? nota.toFixed(1) : "",
+                situacao: nota !== null && nota < 7 ? "crítica" : "adequada"
+            })),
+            origem: "importacao",
+            importacaoId,
+            fonte: origem
+        };
+    };
+
+    const criarAcaoSaep = (linha, indice) => {
+        const tituloBase = obterValorPorPadroesSaep(linha, [/^ação$/i, /acao/i, /t[ií]tulo/i, /item/i, /descri/i]);
+        const data = extrairDataSaep(linha) || new Date().toISOString().slice(0, 10);
+        const statusTexto = resumirLinhaSaep(linha).toLowerCase();
+
+        return {
+            id: `${importacaoId}_acao_${indice}`,
+            codigoTurma,
+            titulo: tituloBase || `Acompanhamento importado ${indice + 1}`,
+            data,
+            responsavel: "Importação SAEP",
+            status: /conclu|finaliz|ok/i.test(statusTexto) ? "Concluído" : "Em andamento",
+            descricao: resumirLinhaSaep(linha),
+            origem: "importacao",
+            importacaoId
+        };
+    };
+
+    const acoes = itens.map((linha, indice) => criarAcaoSaep(linha, indice));
+    const objetivosBase = cruzamento.length > 0 ? cruzamento : individual;
+    const praticosBase = detalhes.length > 0 ? detalhes : individual;
+
+    return {
+        acoes,
+        objetivos: objetivosBase.map((linha, indice) => criarAvaliacaoSaep(linha, "objetivo", indice, "Cruzamento/Individual")),
+        praticos: praticosBase.map((linha, indice) => criarAvaliacaoSaep(linha, "pratico", indice, "Detalhes/Individual"))
+    };
 }
 
 async function processarImportacaoSaepDaTurma(codigoTurma) {
@@ -2289,6 +2557,7 @@ function renderizarResumoPedagogicoSaep(codigoTurma) {
     const { datas, acoes, avaliacoesObjetivo, avaliacoesPratico } = dados;
     const indicadores = calcularIndicadoresSaep({ acoes, avaliacoesObjetivo, avaliacoesPratico });
     const percentualExecucaoGeral = calcularPercentualExecucaoGeral(codigoTurma, acoes);
+    const analiseImportacao = obterUltimaAnaliseImportacaoSaep(codigoTurma);
 
     document.getElementById("saepResumoCards").innerHTML = `
         <div class="saep-metric-card">
@@ -2329,6 +2598,25 @@ function renderizarResumoPedagogicoSaep(codigoTurma) {
     document.getElementById("saepAlertas").innerHTML = alertas.length > 0
         ? alertas.map((alerta) => `<div class="saep-alert">${alerta}</div>`).join("")
         : `<div class="saep-alert saep-alert--ok">Nenhum alerta identificado.</div>`;
+
+    const painelAnalise = document.getElementById("saepAnaliseImportacao");
+    if (painelAnalise) {
+        painelAnalise.innerHTML = analiseImportacao
+            ? `
+                <div class="saep-analysis-panel">
+                    <strong>Análise dos dados importados</strong>
+                    <div class="saep-analysis-grid">
+                        <div><span>Cruzamento</span><strong>${analiseImportacao.totais.cruzamento}</strong></div>
+                        <div><span>Itens</span><strong>${analiseImportacao.totais.itens}</strong></div>
+                        <div><span>Detalhes</span><strong>${analiseImportacao.totais.detalhes}</strong></div>
+                        <div><span>Desempenho individual</span><strong>${analiseImportacao.totais.individual}</strong></div>
+                        <div><span>Alunos identificados</span><strong>${analiseImportacao.totalAlunos}</strong></div>
+                        <div><span>Média geral importada</span><strong>${analiseImportacao.mediaGeral}</strong></div>
+                    </div>
+                </div>
+            `
+            : `<div class="saep-empty-state">Importe uma planilha SAEP para gerar a análise automática.</div>`;
+    }
 }
 
 function calcularIndicadoresSaep(dados) {
@@ -2413,12 +2701,21 @@ function renderizarDetalhesSaep() {
 function renderizarTabelaPlanoSaep(codigoTurma) {
     const container = document.getElementById("saepTabelaPlano");
     const acoes = (carregarTurmasDoStorage("saepAcoes") || []).filter((item) => item.codigoTurma === codigoTurma);
+    const analiseImportacao = obterUltimaAnaliseImportacaoSaep(codigoTurma);
 
     if (!container) {
         return;
     }
 
     container.innerHTML = `
+        ${analiseImportacao ? `
+            <div class="saep-analysis-panel saep-analysis-panel--compact">
+                <strong>Sugestões automáticas do plano</strong>
+                <ul class="saep-analysis-list">
+                    ${analiseImportacao.sugestoesPlano.map((item) => `<li>${item}</li>`).join("")}
+                </ul>
+            </div>
+        ` : ''}
         <div class="table-scroll">
             <table class="o-container__turmas__cadastrar__tabela seeduc-table">
                 <thead>
