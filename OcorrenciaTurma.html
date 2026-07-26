@@ -59,18 +59,22 @@
                         <option value="Frequência">Frequência</option>
                     </select>
                 </label>
-                <label>
-                    Descrição
-                    <textarea id="descricaoOcorrencia" rows="5" placeholder="Descreva a situação..."></textarea>
-                </label>
-                <label>
-                    Sugestão de texto
-                    <textarea id="textoAssistido" rows="4" placeholder="A assistência de texto pode sugerir uma redação..."></textarea>
-                </label>
+                <div class="occurrence-editor-grid">
+                    <label class="occurrence-editor-card">
+                        <span class="occurrence-editor-card__title">Texto da ocorrência</span>
+                        <span class="occurrence-editor-card__subtitle">Escreva o relato objetivo do que aconteceu.</span>
+                        <textarea id="descricaoOcorrencia" rows="8" placeholder="Descreva a situação..."></textarea>
+                    </label>
+                    <label class="occurrence-editor-card">
+                        <span class="occurrence-editor-card__title">Sugestão do agente de IA</span>
+                        <span class="occurrence-editor-card__subtitle">Clique em gerar sugestão para obter uma versão formal, corporativa e escolar.</span>
+                        <textarea id="textoAssistido" rows="8" placeholder="A sugestão formal aparecerá aqui..."></textarea>
+                    </label>
+                </div>
             </div>
 
             <div class="form-actions form-actions--ocorrencia">
-                <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão</button>
+                <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão formal</button>
                 <div class="form-actions__right">
                     <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>

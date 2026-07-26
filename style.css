@@ -227,6 +227,42 @@ img {
     font-size: 16px;
 }
 
+.occurrence-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin-top: 0.9rem;
+}
+
+.occurrence-editor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-height: 100%;
+    padding: 0.95rem;
+    border: 1px solid #dce6f0;
+    border-radius: 14px;
+    background: #f8fbff;
+}
+
+.occurrence-editor-card__title {
+    color: #003da5;
+    font-weight: 700;
+    font-size: 0.98rem;
+}
+
+.occurrence-editor-card__subtitle {
+    color: #64748b;
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.occurrence-editor-card textarea {
+    min-height: 190px;
+    resize: vertical;
+    background: #fff;
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;
@@ -376,12 +412,67 @@ img {
     margin-bottom: 0.8rem;
 }
 
+.student-card--has-occurrence {
+    border-color: #b8d7ff;
+    box-shadow: 0 0 0 1px rgba(0, 61, 165, 0.05);
+}
+
+.students-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.students-summary__item {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    border: 1px solid #d9e7fb;
+    border-radius: 12px;
+    padding: 0.85rem 0.9rem;
+}
+
+.students-summary__item strong {
+    display: block;
+    font-size: 1.25rem;
+    color: #003da5;
+}
+
+.students-summary__item span {
+    display: block;
+    margin-top: 0.2rem;
+    color: #4b5b72;
+    font-size: 0.9rem;
+}
+
 .student-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.65rem;
+}
+
+.student-card__title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.student-card__badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.22rem 0.55rem;
+    background: #e8f1ff;
+    color: #003da5;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.student-card__badge--muted {
+    background: #edf2f7;
+    color: #64748b;
 }
 
 .student-card__button {

@@ -2787,6 +2787,22 @@ function renderizarDetalhesTurmaNaPagina() {
     const ocorrencias = carregarOcorrenciasDaTurma(codigoTurma);
     containerAlunos.innerHTML = "";
 
+    const totalOcorrencias = ocorrencias.length;
+
+    const resumo = document.createElement("div");
+    resumo.className = "students-summary";
+    resumo.innerHTML = `
+        <div class="students-summary__item">
+            <strong>${alunos.length}</strong>
+            <span>alunos cadastrados</span>
+        </div>
+        <div class="students-summary__item">
+            <strong>${totalOcorrencias}</strong>
+            <span>ocorrências registradas</span>
+        </div>
+    `;
+    containerAlunos.appendChild(resumo);
+
     if (alunos.length === 0) {
         const vazio = document.createElement("div");
         vazio.className = "empty-state";
@@ -2798,13 +2814,16 @@ function renderizarDetalhesTurmaNaPagina() {
     const fragmento = document.createDocumentFragment();
     alunos.forEach((aluno) => {
         const card = document.createElement("div");
-        card.className = "student-card";
-        const ocorrenciasAluno = ocorrencias.filter((item) => item.aluno === aluno);
+        const ocorrenciasAluno = ocorrencias.filter((item) => item.aluno.trim() === aluno.trim());
+        card.className = `student-card${ocorrenciasAluno.length > 0 ? " student-card--has-occurrence" : ""}`;
 
         card.innerHTML = `
             <div class="student-card__header">
-                <strong>${aluno}</strong>
-                <button type="button" class="btn-primary student-card__button">Adicionar ocorrência</button>
+                <div class="student-card__title">
+                    <strong>${aluno}</strong>
+                    ${ocorrenciasAluno.length > 0 ? `<span class="student-card__badge">${ocorrenciasAluno.length} ocorrência${ocorrenciasAluno.length > 1 ? "s" : ""}</span>` : '<span class="student-card__badge student-card__badge--muted">Sem ocorrências</span>'}
+                </div>
+                <button type="button" class="btn-primary student-card__button">Cadastrar ocorrência</button>
             </div>
             <div class="student-card__occurrences">
                 ${ocorrenciasAluno.length > 0 ? ocorrenciasAluno.map((item) => `
@@ -2830,13 +2849,16 @@ function cadastrarAlunosDaTurma(codigoTurma) {
         return;
     }
 
-    const alunosNovos = nome.split(",").map((item) => item.trim()).filter(Boolean);
+    const alunosNovos = nome
+        .split(/[,;\n\r\t]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
     if (alunosNovos.length === 0) {
         return;
     }
 
     const alunosExistentes = carregarAlunosDaTurma(codigoTurma);
-    const alunosUnicos = Array.from(new Set([...alunosExistentes, ...alunosNovos]));
+    const alunosUnicos = Array.from(new Map([...alunosExistentes, ...alunosNovos].map((aluno) => [aluno.toLowerCase(), aluno])).values());
     salvarAlunosDaTurma(codigoTurma, alunosUnicos);
     renderizarDetalhesTurmaNaPagina();
 }
@@ -2937,7 +2959,7 @@ async function gerarSugestaoTextoComGemini(textoDescricao, apiKeySobrescrita = "
         body: JSON.stringify({
             system_instruction: {
                 parts: [{
-                    text: "Você é um revisor de textos pedagógicos. Sua única e exclusiva tarefa é reescrever o texto informal de ocorrência fornecido pelo usuário, aprimorando a gramática, a clareza e o tom profissional, transformando-o em um registro formal e impessoal para ata escolar. Não crie planos de ação, não dê conselhos e não adicione informações que não estavam no texto original. Apenas reescreva o relato de forma polida e técnica."
+                    text: "Você é um agente de IA especialista em ajuste de texto para registros escolares. Sua única tarefa é reescrever o texto informal de ocorrência fornecido pelo usuário em uma versão formal, corporativa, impessoal e adequada ao contexto escolar. Preserve o sentido original, melhore a gramática e a clareza, e entregue apenas o texto final pronto para uso em registro pedagógico. Não crie planos de ação, não dê conselhos e não adicione informações que não estavam no texto original."
                 }]
             },
             contents: [{
