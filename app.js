@@ -34,6 +34,7 @@ const SAEP_IMPORT_STORAGE_KEY = "saepSimuladosExcel";
 const SAEP_PLATAFORMAS_STORAGE_KEY = "saepPlataformasDados";
 const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
 const SAEP_ABA_ATIVA_SESSION_STORAGE = "saepAbaAtivaPorTurma";
+const SAEP_HISTORICO_SUBABA_SESSION_STORAGE = "saepHistoricoSubAbaPorTurma";
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
 const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
 const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
@@ -1782,6 +1783,31 @@ function obterAbaAtivaSaep(codigoTurma) {
     return mapa[codigoTurma] || "resumo";
 }
 
+function carregarMapaSubAbasHistoricoSaep() {
+    const dados = sessionStorage.getItem(SAEP_HISTORICO_SUBABA_SESSION_STORAGE);
+    if (!dados) {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(dados);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function salvarSubAbaHistoricoSaep(codigoTurma, subAba) {
+    const mapa = carregarMapaSubAbasHistoricoSaep();
+    mapa[codigoTurma] = subAba;
+    sessionStorage.setItem(SAEP_HISTORICO_SUBABA_SESSION_STORAGE, JSON.stringify(mapa));
+}
+
+function obterSubAbaHistoricoSaep(codigoTurma) {
+    const mapa = carregarMapaSubAbasHistoricoSaep();
+    return mapa[codigoTurma] || "saep";
+}
+
 function obterWorksheetSaep(workbook, nomeAba) {
     const nomeEncontrado = (workbook.SheetNames || []).find((nome) => nome.trim() === nomeAba.trim());
     return nomeEncontrado ? workbook.Sheets[nomeEncontrado] : null;
@@ -2550,6 +2576,8 @@ function configurarModalHistoricoCadastroSaep(codigoTurma, curso, resumoBase) {
 
 function renderizarSubAbaHistoricoSaep(subAba, codigoTurma, turma, resumoBase) {
     const abas = document.querySelectorAll("#saepHistoricoTabs .saep-historico-tab");
+    salvarSubAbaHistoricoSaep(codigoTurma, subAba);
+
     abas.forEach((aba) => {
         aba.classList.toggle("active", aba.dataset.subaba === subAba);
     });
@@ -2597,7 +2625,7 @@ function configurarHistoricoSaep(codigoTurma, turma, resumoBase) {
         };
     });
 
-    renderizarSubAbaHistoricoSaep("saep", codigoTurma, turma, resumoBase);
+    renderizarSubAbaHistoricoSaep(obterSubAbaHistoricoSaep(codigoTurma), codigoTurma, turma, resumoBase);
 }
 
 function formatarDataParaExibirSaep(data) {
