@@ -67,14 +67,8 @@
                     </div>
                 </div>
 
-                <div class="saep-grid saep-grid--2">
-                    <div class="saep-card">
-                        <div class="saep-card__header">
-                            <h3>Distribuição da situação</h3>
-                        </div>
-                        <div id="saepGraficoSituacao"></div>
-                    </div>
-                    <div class="saep-card">
+                <div class="saep-grid">
+                    <div class="saep-card saep-full-width">
                         <div class="saep-card__header">
                             <h3>Andamento do plano de ação</h3>
                         </div>
@@ -104,6 +98,24 @@
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoObjetivo">Nova avaliação</button>
                 </div>
                 <div id="saepTabelaObjetivos"></div>
+                <div class="saep-card saep-import-card">
+                    <div class="saep-card__header">
+                        <h3>Importação de resultado</h3>
+                    </div>
+                    <p class="saep-muted">Importe o Excel de desempenho do SAEP para manter o histórico de simulados da turma.</p>
+                    <div class="saep-upload-box">
+                        <label for="saepUploadExcel" class="saep-upload-label">Arquivo de desempenho (Excel)</label>
+                        <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
+                        <div class="saep-upload-actions">
+                            <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
+                        </div>
+                        <p class="saep-muted saep-upload-note">
+                            Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
+                            D. por Competência - Detalhes e Desempenho Individual - Detalhe.
+                        </p>
+                    </div>
+                    <div id="saepHistoricoImports" class="saep-upload-history"></div>
+                </div>
             </section>
 
             <section id="saepSectionPraticos" class="saep-section" style="display:none;">
@@ -118,6 +130,7 @@
                 <div class="saep-card">
                     <div class="saep-card__header">
                         <h3>Histórico da turma</h3>
+                        <button type="button" class="o-container__turmas__cadastrar" id="btnCadastroHistoricoSaep">Cadastro SAEP</button>
                     </div>
                     <div id="saepHistoricoTabs" class="saep-historico-tabs">
                         <button type="button" class="saep-historico-tab active" data-subaba="saep">SAEP</button>
@@ -143,7 +156,6 @@
                             <h3>Datas do SAEP e Etapas de Acesso</h3>
                             <div class="saep-plataformas-actions">
                                 <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarDatasSaepPlataforma">Cadastrar datas do SAEP</button>
-                                <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarEtapasAcesso">Cadastrar Etapas de Acesso</button>
                             </div>
                         </div>
                         <div id="saepListaDatasPlataforma" class="saep-upload-history"></div>
@@ -152,27 +164,9 @@
                     <div class="saep-card">
                         <div class="saep-card__header">
                             <h3>Etapas de Acesso e Ciclos</h3>
+                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarEtapasAcesso">Cadastrar informações</button>
                         </div>
                         <div id="saepTabelaEtapasAcesso"></div>
-                    </div>
-
-                    <div class="saep-card">
-                        <div class="saep-card__header">
-                            <h3>Importação de desempenho</h3>
-                        </div>
-                        <p class="saep-muted">Importe o Excel de desempenho do SAEP para manter o histórico de simulados da turma.</p>
-                        <div class="saep-upload-box">
-                            <label for="saepUploadExcel" class="saep-upload-label">Arquivo de desempenho (Excel)</label>
-                            <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
-                            <div class="saep-upload-actions">
-                                <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
-                            </div>
-                            <p class="saep-muted saep-upload-note">
-                                Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
-                                D. por Competência - Detalhes e Desempenho Individual - Detalhe.
-                            </p>
-                        </div>
-                        <div id="saepHistoricoImports" class="saep-upload-history"></div>
                     </div>
                 </div>
             </section>
@@ -367,6 +361,45 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarEtapasAcesso">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalHistoricoCadastroSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Cadastro SAEP</h3>
+            <form id="formHistoricoCadastroSaep">
+                <input id="histRegistroId" type="hidden" value="">
+                <div class="form-grid">
+                    <label>
+                        Ano
+                        <input id="histAnoSaep" type="number" min="2000" step="1" required>
+                    </label>
+                    <label>
+                        Nota da Escola
+                        <input id="histNotaEscola" type="number" step="0.1" min="0" required>
+                    </label>
+                    <label>
+                        Curso
+                        <input id="histCursoSaep" type="text" required>
+                    </label>
+                    <label>
+                        Nota do Curso
+                        <input id="histNotaCurso" type="number" step="0.1" min="0" required>
+                    </label>
+                    <label>
+                        Nota da Prova Objetiva
+                        <input id="histNotaObjetivaSegmento" type="number" step="0.1" min="0" required>
+                    </label>
+                    <label>
+                        Nota da Prova Prática
+                        <input id="histNotaPraticaSegmento" type="number" step="0.1" min="0" required>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarHistoricoCadastroSaep">Cancelar</button>
                 </div>
             </form>
         </div>

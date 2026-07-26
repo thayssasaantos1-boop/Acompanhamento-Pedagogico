@@ -1,0 +1,45 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "publish-saep-main",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"SAEP.html",
+				"app.js",
+				"style.css",
+				";",
+				"git",
+				"commit",
+				"-m",
+				"Adiciona registros SAEP na tela principal",
+				";",
+				"git",
+				"push",
+				"origin",
+				"main"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "publish-all-changes",
+			"type": "shell",
+			"command": "git add . ; git commit -m \"Publica ajustes finais do SAEP\" ; git push origin main",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "publish-all-changes-single-quote",
+			"type": "shell",
+			"command": "git add . ; git commit -m 'Publica ajustes finais do SAEP' ; git push origin main",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

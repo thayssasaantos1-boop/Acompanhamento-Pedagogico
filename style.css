@@ -378,6 +378,24 @@ img {
     gap: 0.75rem;
 }
 
+.saep-registros-list-wrapper {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.saep-registros-list-title {
+    margin: 0;
+    color: #003da5;
+    font-size: 1rem;
+}
+
+.saep-registros-topicos {
+    margin: 0;
+    padding-left: 1rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
 .saep-registro-item {
     background: #fff;
     border: 1px solid #dce6f0;
@@ -740,6 +758,57 @@ img {
     margin-bottom: 0.8rem;
 }
 
+.saep-resumo-stack {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.saep-resumo-item {
+    background: #f8fbff;
+    border: 1px solid #e4ebf2;
+    border-radius: 12px;
+    padding: 0.85rem 0.9rem;
+}
+
+.saep-resumo-item__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.55rem;
+}
+
+.saep-resumo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.saep-resumo-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    border-top: 1px solid #e9eef5;
+    padding-top: 0.5rem;
+}
+
+.saep-resumo-list li:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.saep-resumo-list span {
+    color: #334155;
+}
+
+.saep-resumo-list strong {
+    color: #0f172a;
+    font-size: 0.92rem;
+}
+
 .saep-analysis-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -866,6 +935,26 @@ img {
 .saep-historico-form small.saep-muted {
     display: block;
     margin-top: 0.35rem;
+}
+
+.saep-historico-summary-card {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    border: 1px solid #d9e7fb;
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.saep-historico-summary-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.saep-import-card {
+    margin-top: 1rem;
 }
 
 .saep-historico-loading,

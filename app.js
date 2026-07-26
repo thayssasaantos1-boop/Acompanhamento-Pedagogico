@@ -33,6 +33,7 @@ const APP_SYNC_STATE = {
 const SAEP_IMPORT_STORAGE_KEY = "saepSimuladosExcel";
 const SAEP_PLATAFORMAS_STORAGE_KEY = "saepPlataformasDados";
 const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
+const SAEP_ABA_ATIVA_SESSION_STORAGE = "saepAbaAtivaPorTurma";
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
 const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
 const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
@@ -1730,6 +1731,7 @@ function renderizarHistoricoImportacaoSaep(codigoTurma) {
 function exibirAbaSaepDetalhes(aba) {
     const secoes = document.querySelectorAll(".saep-section");
     const botoesSidebar = document.querySelectorAll(".saep-sidebar__item");
+    const codigoTurma = new URLSearchParams(window.location.search).get("turma") || "";
 
     secoes.forEach((secao) => {
         secao.style.display = "none";
@@ -1740,8 +1742,11 @@ function exibirAbaSaepDetalhes(aba) {
         secaoAlvo.style.display = "block";
     }
 
+    if (codigoTurma && aba) {
+        salvarAbaAtivaSaep(codigoTurma, aba);
+    }
+
     if (aba === "resumo") {
-        const codigoTurma = new URLSearchParams(window.location.search).get("turma");
         if (codigoTurma) {
             renderizarResumoPedagogicoSaep(codigoTurma);
         }
@@ -1750,6 +1755,31 @@ function exibirAbaSaepDetalhes(aba) {
     botoesSidebar.forEach((item) => {
         item.classList.toggle("active", item.dataset.aba === aba);
     });
+}
+
+function carregarMapaAbasSaep() {
+    const dados = sessionStorage.getItem(SAEP_ABA_ATIVA_SESSION_STORAGE);
+    if (!dados) {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(dados);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function salvarAbaAtivaSaep(codigoTurma, aba) {
+    const mapa = carregarMapaAbasSaep();
+    mapa[codigoTurma] = aba;
+    sessionStorage.setItem(SAEP_ABA_ATIVA_SESSION_STORAGE, JSON.stringify(mapa));
+}
+
+function obterAbaAtivaSaep(codigoTurma) {
+    const mapa = carregarMapaAbasSaep();
+    return mapa[codigoTurma] || "resumo";
 }
 
 function obterWorksheetSaep(workbook, nomeAba) {
@@ -2133,7 +2163,10 @@ function normalizarHistoricoIndicadoresTurma(item) {
                 id,
                 criadoEm: new Date().toISOString(),
                 atualizadoEm: new Date().toISOString(),
+                ano: item.ano ?? "",
                 notaEscola: item.notaEscola ?? "",
+                curso: item.curso ?? "",
+                notaCurso: item.notaCurso ?? item.notaSegmento ?? "",
                 notaSegmento: item.notaSegmento ?? "",
                 notaObjetivaSegmento: item.notaObjetivaSegmento ?? "",
                 notaPraticaSegmento: item.notaPraticaSegmento ?? "",
@@ -2158,7 +2191,10 @@ function obterIndicadoresHistoricoDaTurma(codigoTurma) {
 
     return {
         registroId: ativo?.id || "",
+        ano: ativo?.ano ?? "",
         notaEscola: ativo?.notaEscola ?? "",
+        curso: ativo?.curso ?? "",
+        notaCurso: ativo?.notaCurso ?? ativo?.notaSegmento ?? "",
         notaSegmento: ativo?.notaSegmento ?? "",
         notaObjetivaSegmento: ativo?.notaObjetivaSegmento ?? "",
         notaPraticaSegmento: ativo?.notaPraticaSegmento ?? "",
@@ -2340,64 +2376,56 @@ function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase) {
         <div class="saep-historico-intro">
             <p class="saep-muted">Indicadores Gerais</p>
             <h4 class="saep-historico-intro__title">SAEP por Turma</h4>
-            <p class="saep-muted">Preencha os indicadores gerais do SAEP e mantenha o histórico de versões.</p>
+            <p class="saep-muted">Use o botão Cadastro SAEP para registrar e manter o histórico anual da turma.</p>
             <p class="saep-muted">Turma: ${codigoTurma} · Curso: ${curso || "-"}</p>
             <div class="saep-historico-kpis">
                 <span class="saep-historico-chip">Ações: ${resumoBase.totalAcoes}</span>
                 <span class="saep-historico-chip">Avaliações: ${resumoBase.totalAvaliacoes}</span>
             </div>
         </div>
-        <form id="formHistoricoIndicadoresSaep" class="form-grid saep-historico-form">
-            <input id="histRegistroId" type="hidden" value="${indicadores.registroId}">
-            <label>
-                Nota da Escola
-                <input id="histNotaEscola" type="number" step="0.1" min="0" required value="${indicadores.notaEscola}">
-            </label>
-            <label>
-                Nota por Segmento
-                <input id="histNotaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaSegmento}">
-            </label>
-            <label>
-                Nota da Prova Objetiva por Segmento
-                <input id="histNotaObjetivaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaObjetivaSegmento}">
-            </label>
-            <label>
-                Nota da Prova Prática por Segmento
-                <input id="histNotaPraticaSegmento" type="number" step="0.1" min="0" required value="${indicadores.notaPraticaSegmento}">
-            </label>
-            <label class="saep-full-width">
-                Capacidades Críticas
-                <textarea id="histCapacidadesCriticas" rows="4" placeholder="Descreva as capacidades críticas identificadas...">${indicadores.capacidadesCriticas}</textarea>
-                <small class="saep-muted">Use este campo para observações pedagógicas relevantes do ciclo avaliado.</small>
-            </label>
-            <div class="form-actions saep-full-width">
-                <button type="submit" class="btn-primary">Salvar Indicadores Gerais</button>
-                <button type="button" class="btn-secondary" id="btnNovoRegistroIndicador">Novo Registro</button>
+        <div class="saep-historico-summary-card">
+            <div class="saep-historico-summary-card__head">
+                <strong>Resumo do cadastro SAEP</strong>
+                <span class="saep-badge">${indicadores.ano || "Sem ano"}</span>
             </div>
-        </form>
+            ${indicadores.registroId ? `
+                <div class="saep-analysis-grid">
+                    <div><span>Nota da Escola</span><strong>${indicadores.notaEscola || "-"}</strong></div>
+                    <div><span>Curso</span><strong>${indicadores.curso || curso || "-"}</strong></div>
+                    <div><span>Nota do Curso</span><strong>${indicadores.notaCurso || "-"}</strong></div>
+                    <div><span>Nota Prova Objetiva</span><strong>${indicadores.notaObjetivaSegmento || "-"}</strong></div>
+                    <div><span>Nota Prova Prática</span><strong>${indicadores.notaPraticaSegmento || "-"}</strong></div>
+                    <div><span>Atualizado em</span><strong>${versoesOrdenadas[0]?.atualizadoEm ? new Date(versoesOrdenadas[0].atualizadoEm).toLocaleString("pt-BR") : "-"}</strong></div>
+                </div>
+            ` : '<div class="saep-empty-state">Nenhum cadastro SAEP realizado ainda.</div>'}
+        </div>
         <div class="saep-historico-head">
-            <p class="saep-muted">Histórico de versões dos indicadores (edição e exclusão por data).</p>
+            <p class="saep-muted">Histórico de versões do cadastro SAEP (edição e exclusão por data).</p>
         </div>
         <div class="table-scroll saep-historico-versoes">
             <table class="o-container__turmas__cadastrar__tabela seeduc-table">
                 <thead>
                     <tr>
+                        <th>Ano</th>
                         <th>Data de Atualização</th>
                         <th>Nota da Escola</th>
-                        <th>Nota por Segmento</th>
-                        <th>Objetiva por Segmento</th>
-                        <th>Prática por Segmento</th>
+                        <th>Curso</th>
+                        <th>Nota do Curso</th>
+                        <th>Nota Objetiva</th>
+                        <th>Nota Prática</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${versoesOrdenadas.length === 0
-        ? '<tr><td colspan="6">Nenhum indicador salvo.</td></tr>'
+            ? '<tr><td colspan="8">Nenhum cadastro SAEP salvo.</td></tr>'
         : versoesOrdenadas.map((item) => `
                         <tr>
+                            <td>${item.ano || "-"}</td>
                             <td>${new Date(item.atualizadoEm || item.criadoEm).toLocaleString("pt-BR")}</td>
                             <td>${item.notaEscola}</td>
-                            <td>${item.notaSegmento}</td>
+                            <td>${item.curso || curso || "-"}</td>
+                            <td>${item.notaCurso ?? item.notaSegmento ?? "-"}</td>
                             <td>${item.notaObjetivaSegmento}</td>
                             <td>${item.notaPraticaSegmento}</td>
                             <td>
@@ -2416,40 +2444,6 @@ function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase) {
         </ul>
     `;
 
-    const form = document.getElementById("formHistoricoIndicadoresSaep");
-    if (!form) {
-        return;
-    }
-
-    form.onsubmit = (event) => {
-        event.preventDefault();
-
-        const registroId = document.getElementById("histRegistroId").value;
-
-        salvarIndicadoresHistoricoDaTurma(codigoTurma, {
-            notaEscola: document.getElementById("histNotaEscola").value,
-            notaSegmento: document.getElementById("histNotaSegmento").value,
-            notaObjetivaSegmento: document.getElementById("histNotaObjetivaSegmento").value,
-            notaPraticaSegmento: document.getElementById("histNotaPraticaSegmento").value,
-            capacidadesCriticas: document.getElementById("histCapacidadesCriticas").value.trim()
-        }, registroId);
-
-        alert("Indicadores gerais salvos com sucesso.");
-        renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase);
-    };
-
-    const botaoNovo = document.getElementById("btnNovoRegistroIndicador");
-    if (botaoNovo) {
-        botaoNovo.onclick = () => {
-            document.getElementById("histRegistroId").value = "";
-            document.getElementById("histNotaEscola").value = "";
-            document.getElementById("histNotaSegmento").value = "";
-            document.getElementById("histNotaObjetivaSegmento").value = "";
-            document.getElementById("histNotaPraticaSegmento").value = "";
-            document.getElementById("histCapacidadesCriticas").value = "";
-        };
-    }
-
     container.querySelectorAll("[data-editar-indicador]").forEach((botao) => {
         botao.onclick = () => {
             const id = botao.getAttribute("data-editar-indicador");
@@ -2458,12 +2452,7 @@ function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase) {
                 return;
             }
 
-            document.getElementById("histRegistroId").value = registro.id;
-            document.getElementById("histNotaEscola").value = registro.notaEscola;
-            document.getElementById("histNotaSegmento").value = registro.notaSegmento;
-            document.getElementById("histNotaObjetivaSegmento").value = registro.notaObjetivaSegmento;
-            document.getElementById("histNotaPraticaSegmento").value = registro.notaPraticaSegmento;
-            document.getElementById("histCapacidadesCriticas").value = registro.capacidadesCriticas || "";
+            abrirModalHistoricoCadastroSaep(codigoTurma, curso, registro, resumoBase);
         };
     });
 
@@ -2479,6 +2468,84 @@ function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase) {
             renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase);
         };
     });
+
+    configurarModalHistoricoCadastroSaep(codigoTurma, curso, resumoBase);
+}
+
+function abrirModalHistoricoCadastroSaep(codigoTurma, curso, registro = null, resumoBase = null) {
+    const modal = document.getElementById("modalHistoricoCadastroSaep");
+    const campoRegistroId = document.getElementById("histRegistroId");
+    const campoAno = document.getElementById("histAnoSaep");
+    const campoNotaEscola = document.getElementById("histNotaEscola");
+    const campoCurso = document.getElementById("histCursoSaep");
+    const campoNotaCurso = document.getElementById("histNotaCurso");
+    const campoNotaObjetiva = document.getElementById("histNotaObjetivaSegmento");
+    const campoNotaPratica = document.getElementById("histNotaPraticaSegmento");
+
+    if (!modal || !campoRegistroId || !campoAno || !campoNotaEscola || !campoCurso || !campoNotaCurso || !campoNotaObjetiva || !campoNotaPratica) {
+        return;
+    }
+
+    campoRegistroId.value = registro?.id || "";
+    campoAno.value = registro?.ano || new Date().getFullYear();
+    campoNotaEscola.value = registro?.notaEscola || "";
+    campoCurso.value = registro?.curso || curso || "";
+    campoNotaCurso.value = registro?.notaCurso ?? registro?.notaSegmento ?? "";
+    campoNotaObjetiva.value = registro?.notaObjetivaSegmento || "";
+    campoNotaPratica.value = registro?.notaPraticaSegmento || "";
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+
+    configurarModalHistoricoCadastroSaep(codigoTurma, curso, resumoBase);
+}
+
+function fecharModalHistoricoCadastroSaep() {
+    const modal = document.getElementById("modalHistoricoCadastroSaep");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+function configurarModalHistoricoCadastroSaep(codigoTurma, curso, resumoBase) {
+    const botaoCadastro = document.getElementById("btnCadastroHistoricoSaep");
+    const modal = document.getElementById("modalHistoricoCadastroSaep");
+    const form = document.getElementById("formHistoricoCadastroSaep");
+    const botaoCancelar = document.getElementById("btnCancelarHistoricoCadastroSaep");
+
+    if (!botaoCadastro || !modal || !form || !botaoCancelar) {
+        return;
+    }
+
+    botaoCadastro.onclick = () => abrirModalHistoricoCadastroSaep(codigoTurma, curso, null, resumoBase);
+    botaoCancelar.onclick = fecharModalHistoricoCadastroSaep;
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            fecharModalHistoricoCadastroSaep();
+        }
+    };
+
+    form.onsubmit = (event) => {
+        event.preventDefault();
+
+        const registroId = document.getElementById("histRegistroId").value;
+        salvarIndicadoresHistoricoDaTurma(codigoTurma, {
+            ano: document.getElementById("histAnoSaep").value,
+            notaEscola: document.getElementById("histNotaEscola").value,
+            curso: document.getElementById("histCursoSaep").value.trim(),
+            notaCurso: document.getElementById("histNotaCurso").value,
+            notaSegmento: document.getElementById("histNotaCurso").value,
+            notaObjetivaSegmento: document.getElementById("histNotaObjetivaSegmento").value,
+            notaPraticaSegmento: document.getElementById("histNotaPraticaSegmento").value,
+            capacidadesCriticas: ""
+        }, registroId);
+
+        fecharModalHistoricoCadastroSaep();
+        renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase);
+    };
 }
 
 function renderizarSubAbaHistoricoSaep(subAba, codigoTurma, turma, resumoBase) {
@@ -2553,6 +2620,170 @@ function calcularPercentualExecucaoGeral(codigoTurma, acoes = []) {
     return Math.round(((concluidasAcoes + concluidasEtapas) / totalItens) * 100);
 }
 
+function renderizarResumoNotasSaep(avaliacoesObjetivo = [], avaliacoesPratico = []) {
+    const container = document.getElementById("saepGraficoNotas");
+    if (!container) {
+        return;
+    }
+
+    const blocos = [
+        {
+            titulo: "Simulados objetivos",
+            itens: avaliacoesObjetivo
+        },
+        {
+            titulo: "Simulados práticos",
+            itens: avaliacoesPratico
+        }
+    ];
+
+    const possuiNotas = blocos.some((bloco) => bloco.itens.length > 0);
+    if (!possuiNotas) {
+        container.innerHTML = '<div class="saep-empty-state">Cadastre notas dos simulados objetivos e práticos para exibir o resumo aqui.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="saep-resumo-stack">
+            ${blocos.map((bloco) => {
+                if (bloco.itens.length === 0) {
+                    return `
+                        <div class="saep-resumo-item">
+                            <strong>${bloco.titulo}</strong>
+                            <p class="saep-muted">Nenhuma nota cadastrada.</p>
+                        </div>
+                    `;
+                }
+
+                const itensOrdenados = bloco.itens.slice().sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+                const media = (itensOrdenados.reduce((total, item) => total + Number(item.notaMedia || 0), 0) / itensOrdenados.length).toFixed(1);
+
+                return `
+                    <div class="saep-resumo-item">
+                        <div class="saep-resumo-item__head">
+                            <strong>${bloco.titulo}</strong>
+                            <span class="saep-badge">Média ${media}</span>
+                        </div>
+                        <ul class="saep-resumo-list">
+                            ${itensOrdenados.slice(0, 4).map((item) => `
+                                <li>
+                                    <span>${formatarDataParaExibirSaep(item.data)}</span>
+                                    <strong>Nota ${item.notaMedia || "-"}</strong>
+                                </li>
+                            `).join("")}
+                        </ul>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+function renderizarResumoCapacidadesSaep(avaliacoesObjetivo = [], avaliacoesPratico = [], principais = []) {
+    const container = document.getElementById("saepGraficoCapacidades");
+    if (!container) {
+        return;
+    }
+
+    const todasCapacidades = [...avaliacoesObjetivo, ...avaliacoesPratico]
+        .flatMap((avaliacao) => Array.isArray(avaliacao.capacidades) ? avaliacao.capacidades : []);
+
+    if (todasCapacidades.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Cadastre capacidades avaliadas para destacar os pontos críticos da turma.</div>';
+        return;
+    }
+
+    const capacidadesEmAtencao = todasCapacidades
+        .filter((item) => ["crítica", "critica", "atenção", "atencao"].includes(String(item.situacao || "").toLowerCase()))
+        .slice(0, 8);
+
+    container.innerHTML = `
+        <div class="saep-resumo-stack">
+            <div class="saep-resumo-item">
+                <div class="saep-resumo-item__head">
+                    <strong>Capacidades mais críticas</strong>
+                    <span class="saep-badge saep-badge--warning">${principais.length}</span>
+                </div>
+                ${principais.length > 0 ? `
+                    <ul class="saep-resumo-list">
+                        ${principais.map(([nome, total]) => `
+                            <li>
+                                <span>${nome}</span>
+                                <strong>${total} ocorrência${total > 1 ? "s" : ""}</strong>
+                            </li>
+                        `).join("")}
+                    </ul>
+                ` : '<p class="saep-muted">Nenhuma capacidade crítica identificada até o momento.</p>'}
+            </div>
+            <div class="saep-resumo-item">
+                <strong>Capacidades em atenção nas avaliações</strong>
+                ${capacidadesEmAtencao.length > 0 ? `
+                    <ul class="saep-resumo-list">
+                        ${capacidadesEmAtencao.map((item) => `
+                            <li>
+                                <span>${item.capacidade}</span>
+                                <strong>${item.situacao || "atenção"}</strong>
+                            </li>
+                        `).join("")}
+                    </ul>
+                ` : '<p class="saep-muted">As avaliações cadastradas ainda não sinalizaram capacidades críticas ou em atenção.</p>'}
+            </div>
+        </div>
+    `;
+}
+
+function renderizarResumoPlanoSaep(codigoTurma, acoes = []) {
+    const container = document.getElementById("saepGraficoPlano");
+    if (!container) {
+        return;
+    }
+
+    const etapas = (obterDadosPlataformasTurma(codigoTurma)?.etapas || []).filter((item) => item.status !== "Concluída");
+    const acoesEmAndamento = acoes.filter((item) => item.status === "Em andamento");
+
+    if (acoesEmAndamento.length === 0 && etapas.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Nenhuma ação ou etapa em andamento no momento.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="saep-resumo-stack">
+            <div class="saep-resumo-item">
+                <div class="saep-resumo-item__head">
+                    <strong>Ações em andamento</strong>
+                    <span class="saep-badge">${acoesEmAndamento.length}</span>
+                </div>
+                ${acoesEmAndamento.length > 0 ? `
+                    <ul class="saep-resumo-list">
+                        ${acoesEmAndamento.map((acao) => `
+                            <li>
+                                <span>${acao.titulo}</span>
+                                <strong>${formatarDataParaExibirSaep(acao.data)}</strong>
+                            </li>
+                        `).join("")}
+                    </ul>
+                ` : '<p class="saep-muted">Nenhuma ação do plano está marcada como Em andamento.</p>'}
+            </div>
+            <div class="saep-resumo-item">
+                <div class="saep-resumo-item__head">
+                    <strong>Etapas abertas</strong>
+                    <span class="saep-badge">${etapas.length}</span>
+                </div>
+                ${etapas.length > 0 ? `
+                    <ul class="saep-resumo-list">
+                        ${etapas.map((etapa) => `
+                            <li>
+                                <span>${etapa.acao}</span>
+                                <strong>${etapa.status}</strong>
+                            </li>
+                        `).join("")}
+                    </ul>
+                ` : '<p class="saep-muted">Nenhuma etapa em aberto cadastrada.</p>'}
+            </div>
+        </div>
+    `;
+}
+
 function renderizarResumoPedagogicoSaep(codigoTurma) {
     const dados = carregarDadosSaepDaTurma(codigoTurma);
     const { datas, acoes, avaliacoesObjetivo, avaliacoesPratico } = dados;
@@ -2618,6 +2849,10 @@ function renderizarResumoPedagogicoSaep(codigoTurma) {
             `
             : `<div class="saep-empty-state">Importe uma planilha SAEP para gerar a análise automática.</div>`;
     }
+
+    renderizarResumoNotasSaep(avaliacoesObjetivo, avaliacoesPratico);
+    renderizarResumoCapacidadesSaep(avaliacoesObjetivo, avaliacoesPratico, indicadores.principais);
+    renderizarResumoPlanoSaep(codigoTurma, acoes);
 }
 
 function calcularIndicadoresSaep(dados) {
@@ -2668,11 +2903,6 @@ function renderizarDetalhesSaep() {
 
     renderizarResumoPedagogicoSaep(codigoTurma);
 
-    document.getElementById("saepGraficoNotas").innerHTML = `<div class="saep-empty-state">Evolução das notas será exibida com os simulados cadastrados.</div>`;
-    document.getElementById("saepGraficoCapacidades").innerHTML = `<div class="saep-empty-state">Desempenho por capacidade será exibido ao cadastrar avaliações.</div>`;
-    document.getElementById("saepGraficoSituacao").innerHTML = `<div class="saep-empty-state">Distribuição da situação da turma aparecerá aqui.</div>`;
-    document.getElementById("saepGraficoPlano").innerHTML = `<div class="saep-empty-state">Andamento do plano de ação aparecerá aqui.</div>`;
-
     configurarHistoricoSaep(codigoTurma, turma, {
         dataInicio: turma.dataInicio || "",
         totalAcoes: acoes.length,
@@ -2681,7 +2911,7 @@ function renderizarDetalhesSaep() {
 
     configurarPlataformasSaep(codigoTurma, turma.instrutor);
     configurarImportacaoSaep(codigoTurma);
-    exibirAbaSaepDetalhes("resumo");
+    exibirAbaSaepDetalhes(obterAbaAtivaSaep(codigoTurma));
 
     document.querySelectorAll(".saep-sidebar__item").forEach((botao) => {
         botao.onclick = () => {
@@ -3031,17 +3261,24 @@ function renderizarRegistrosSaepGestao(container, badge) {
         return;
     }
 
-    container.innerHTML = registros.map((registro) => `
-        <article class="saep-registro-item">
-            <div class="saep-registro-item__head">
-                <strong>${registro.titulo}</strong>
-                <span class="saep-badge">${registro.tipo}</span>
-            </div>
-            <p class="saep-registro-item__turma">Turma ${registro.codigoTurma || "-"}</p>
-            <p class="saep-registro-item__descricao">${registro.descricao}</p>
-            <span class="saep-registro-item__data">${registro.criadoEm ? new Date(registro.criadoEm).toLocaleString("pt-BR") : "-"}</span>
-        </article>
-    `).join("");
+    container.innerHTML = `
+        <div class="saep-registros-list-wrapper">
+            <h4 class="saep-registros-list-title">Tópicos cadastrados</h4>
+            <ul class="saep-registros-topicos">
+                ${registros.map((registro) => `
+                    <li class="saep-registro-item">
+                        <div class="saep-registro-item__head">
+                            <strong>${registro.titulo}</strong>
+                            <span class="saep-badge">${registro.tipo}</span>
+                        </div>
+                        <p class="saep-registro-item__turma">Turma ${registro.codigoTurma || "-"}</p>
+                        <p class="saep-registro-item__descricao">${registro.descricao}</p>
+                        <span class="saep-registro-item__data">${registro.criadoEm ? new Date(registro.criadoEm).toLocaleString("pt-BR") : "-"}</span>
+                    </li>
+                `).join("")}
+            </ul>
+        </div>
+    `;
 }
 
 function popularSelectTurmasRegistrosSaep(select) {
