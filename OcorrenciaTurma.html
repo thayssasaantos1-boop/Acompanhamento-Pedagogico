@@ -46,40 +46,42 @@
 
     <div id="modalOcorrencia" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3 id="modalTituloOcorrencia">Adicionar ocorrência</h3>
-            <input type="hidden" id="codigoTurmaOcorrencia" value="">
-            <input type="hidden" id="alunoOcorrencia" value="">
-            <input type="hidden" id="nomeAlunoOcorrencia" value="">
-            <div class="form-grid">
-                <label>
-                    Tipo de ocorrência
-                    <select id="tipoOcorrencia">
-                        <option value="Pedagógica">Pedagógica</option>
-                        <option value="Comportamental">Comportamental</option>
-                        <option value="Frequência">Frequência</option>
-                    </select>
-                </label>
-                <div class="occurrence-editor-grid">
-                    <label class="occurrence-editor-card">
-                        <span class="occurrence-editor-card__title">Texto da ocorrência</span>
-                        <span class="occurrence-editor-card__subtitle">Escreva o relato objetivo do que aconteceu.</span>
-                        <textarea id="descricaoOcorrencia" rows="8" placeholder="Descreva a situação..."></textarea>
+            <form id="formOcorrencia">
+                <h3 id="modalTituloOcorrencia">Adicionar ocorrência</h3>
+                <input type="hidden" id="codigoTurmaOcorrencia" value="">
+                <input type="hidden" id="alunoOcorrencia" value="">
+                <input type="hidden" id="nomeAlunoOcorrencia" value="">
+                <div class="form-grid">
+                    <label>
+                        Tipo de ocorrência
+                        <select id="tipoOcorrencia">
+                            <option value="Pedagógica">Pedagógica</option>
+                            <option value="Comportamental">Comportamental</option>
+                            <option value="Frequência">Frequência</option>
+                        </select>
                     </label>
-                    <label class="occurrence-editor-card">
-                        <span class="occurrence-editor-card__title">Sugestão do agente de IA</span>
-                        <span class="occurrence-editor-card__subtitle">Clique em gerar sugestão para obter uma versão formal, corporativa e escolar.</span>
-                        <textarea id="textoAssistido" rows="8" placeholder="A sugestão formal aparecerá aqui..."></textarea>
-                    </label>
+                    <div class="occurrence-editor-grid">
+                        <label class="occurrence-editor-card">
+                            <span class="occurrence-editor-card__title">Texto da ocorrência</span>
+                            <span class="occurrence-editor-card__subtitle">Escreva o relato objetivo do que aconteceu.</span>
+                            <textarea id="descricaoOcorrencia" rows="8" placeholder="Descreva a situação..."></textarea>
+                        </label>
+                        <label class="occurrence-editor-card">
+                            <span class="occurrence-editor-card__title">Sugestão do agente de IA</span>
+                            <span class="occurrence-editor-card__subtitle">Clique em gerar sugestão para obter uma versão formal, corporativa e escolar.</span>
+                            <textarea id="textoAssistido" rows="8" placeholder="A sugestão formal aparecerá aqui..."></textarea>
+                        </label>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-actions form-actions--ocorrencia">
-                <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão formal</button>
-                <div class="form-actions__right">
-                    <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
-                    <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
+                <div class="form-actions form-actions--ocorrencia">
+                    <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão formal</button>
+                    <div class="form-actions__right">
+                        <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
+                        <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
+                    </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 

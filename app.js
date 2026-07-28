@@ -44,6 +44,98 @@ const SAEP_ABAS_OBRIGATORIAS = [
     "D. por Competência - Detalhes",
     "Desempenho Individual - Detalhe"
 ];
+const FORM_DRAFT_STORAGE_PREFIX = "__formDrafts__";
+
+function obterChaveRascunhoFormulario(formId) {
+    return `${FORM_DRAFT_STORAGE_PREFIX}${formId}`;
+}
+
+function salvarRascunhoFormulario(formId, form) {
+    if (!formId || !form) {
+        return;
+    }
+
+    const dados = {};
+    form.querySelectorAll("input, textarea, select").forEach((campo) => {
+        const chave = campo.id || campo.name;
+        if (!chave || campo.type === "file" || campo.disabled || campo.readOnly) {
+            return;
+        }
+
+        if (campo.type === "checkbox" || campo.type === "radio") {
+            dados[chave] = campo.checked;
+            return;
+        }
+
+        dados[chave] = campo.value;
+    });
+
+    localStorage.setItem(obterChaveRascunhoFormulario(formId), JSON.stringify(dados));
+}
+
+function restaurarRascunhoFormulario(formId, form) {
+    if (!formId || !form) {
+        return;
+    }
+
+    const chave = obterChaveRascunhoFormulario(formId);
+    const valor = localStorage.getItem(chave);
+    if (!valor) {
+        return;
+    }
+
+    try {
+        const dados = JSON.parse(valor);
+        if (!dados || typeof dados !== "object") {
+            return;
+        }
+
+        form.querySelectorAll("input, textarea, select").forEach((campo) => {
+            const chaveCampo = campo.id || campo.name;
+            if (!chaveCampo || campo.type === "file" || campo.disabled || campo.readOnly) {
+                return;
+            }
+
+            if (!(chaveCampo in dados)) {
+                return;
+            }
+
+            if (campo.type === "checkbox" || campo.type === "radio") {
+                campo.checked = Boolean(dados[chaveCampo]);
+                return;
+            }
+
+            campo.value = dados[chaveCampo];
+        });
+    } catch (error) {
+        console.warn(`Não foi possível restaurar o rascunho do formulário ${formId}:`, error);
+    }
+}
+
+function limparRascunhoFormulario(formId) {
+    if (!formId) {
+        return;
+    }
+
+    localStorage.removeItem(obterChaveRascunhoFormulario(formId));
+}
+
+function configurarPersistenciaRascunhoFormulario(formId) {
+    const form = document.getElementById(formId);
+    if (!form) {
+        return;
+    }
+
+    const salvarAtual = () => salvarRascunhoFormulario(formId, form);
+
+    form.querySelectorAll("input, textarea, select").forEach((campo) => {
+        campo.addEventListener("input", salvarAtual);
+        campo.addEventListener("change", salvarAtual);
+    });
+
+    form.addEventListener("submit", salvarAtual);
+    restaurarRascunhoFormulario(formId, form);
+}
 
 function normalizarUrlSync(url) {
     return (url || "").replace(/\/+$/, "");
@@ -291,7 +383,15 @@ function abrirModalCadastro() {
     }
 
     if (form) {
-        form.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroTurma");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroTurma", form);
+        }
+
         const indice = document.getElementById("indiceTurmaEdicao");
         if (indice) {
             indice.value = "";
@@ -748,6 +848,7 @@ function cadastrarTurmas(event) {
     }
 
     salvarTurmasNoStorage(turmasSalvas, STORAGE_KEY);
+    limparRascunhoFormulario("formCadastroTurma");
     renderizarPaginaAtual();
     fecharModalCadastro();
 }
@@ -810,7 +911,14 @@ function abrirModalCadastroSeeduc() {
     }
 
     if (form) {
-        form.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroSeeduc");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroSeeduc", form);
+        }
     }
 
     if (titulo) {
@@ -886,6 +994,7 @@ function salvarTurmaSeeduc(event) {
     }
 
     salvarTurmasNoStorage(turmasSeeduc, "seeducTurmas");
+    limparRascunhoFormulario("formCadastroSeeduc");
     fecharModalCadastroSeeduc();
     renderizarTabelaSeeduc();
 }
@@ -1143,7 +1252,14 @@ function abrirModalCadastroSaep(codigoTurma = "") {
     }
 
     if (form) {
-        form.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroSaep");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroSaep", form);
+        }
     }
 
     const dados = carregarTurmasDoStorage("saepDatas") || [];
@@ -1194,6 +1310,7 @@ function salvarDatasSaep(event) {
     }
 
     salvarTurmasNoStorage(dados, "saepDatas");
+    limparRascunhoFormulario("formCadastroSaep");
     fecharModalCadastroSaep();
     renderizarTurmasSaep();
 }
@@ -1556,7 +1673,15 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
     renderizarTabelaEtapasAcesso(codigoTurma);
 
     botaoInformativo.onclick = () => {
-        formInformativo.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formInformativoPlataforma");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            formInformativo.reset();
+        } else {
+            restaurarRascunhoFormulario("formInformativoPlataforma", formInformativo);
+        }
+
         abrirModalPlataforma("modalInformativoPlataforma");
     };
 
@@ -1581,11 +1706,19 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
     };
 
     botaoDatasSaep.onclick = () => {
-        formDatas.reset();
-        inputCodigoTurma.value = codigoTurma;
-        inputInstrutor.value = instrutorPadrao || "";
-        selectTipoProva.value = "objetiva";
-        atualizarCamposTipoProvaPlataforma();
+        const chaveRascunho = obterChaveRascunhoFormulario("formDatasSaepPlataforma");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            formDatas.reset();
+            inputCodigoTurma.value = codigoTurma;
+            inputInstrutor.value = instrutorPadrao || "";
+            selectTipoProva.value = "objetiva";
+            atualizarCamposTipoProvaPlataforma();
+        } else {
+            restaurarRascunhoFormulario("formDatasSaepPlataforma", formDatas);
+        }
+
         abrirModalPlataforma("modalDatasSaepPlataforma");
     };
 
@@ -1637,9 +1770,17 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
     };
 
     botaoEtapas.onclick = () => {
-        formEtapas.reset();
-        document.getElementById("etapaAcessoId").value = "";
-        document.getElementById("tituloModalEtapasAcesso").textContent = "Cadastrar Etapas de Acesso";
+        const chaveRascunho = obterChaveRascunhoFormulario("formEtapasAcesso");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            formEtapas.reset();
+            document.getElementById("etapaAcessoId").value = "";
+            document.getElementById("tituloModalEtapasAcesso").textContent = "Cadastrar Etapas de Acesso";
+        } else {
+            restaurarRascunhoFormulario("formEtapasAcesso", formEtapas);
+        }
+
         abrirModalPlataforma("modalEtapasAcesso");
     };
 
@@ -3106,7 +3247,14 @@ function abrirModalAcaoSaep(id = "") {
     }
 
     if (form) {
-        form.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroAcaoSaep");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroAcaoSaep", form);
+        }
     }
 
     if (titulo) {
@@ -3170,6 +3318,7 @@ function salvarAcaoSaep(event) {
     }
 
     salvarTurmasNoStorage(acoes, "saepAcoes");
+    limparRascunhoFormulario("formCadastroAcaoSaep");
     fecharModalAcaoSaep();
     renderizarDetalhesSaep();
 }
@@ -3198,7 +3347,14 @@ function abrirModalAvaliacaoSaep(tipo = "objetivo") {
     }
 
     if (form) {
-        form.reset();
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroAvaliacaoSaep");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroAvaliacaoSaep", form);
+        }
     }
 
     if (titulo) {
@@ -3263,6 +3419,7 @@ function salvarAvaliacaoSaep(event) {
     const avaliacoes = carregarTurmasDoStorage(storageKey) || [];
     avaliacoes.push(avaliacao);
     salvarTurmasNoStorage(avaliacoes, storageKey);
+    limparRascunhoFormulario("formCadastroAvaliacaoSaep");
     fecharModalAvaliacaoSaep();
     renderizarDetalhesSaep();
 }
@@ -3865,11 +4022,27 @@ function salvarOcorrencia() {
     const textoFinal = assistido || `Ocorrência ${tipo} registrada para ${nomeAluno}. ${descricao}`;
     ocorrencias.push({ aluno: nomeAluno, tipo, descricao: textoFinal, textoAssistido: assistido });
     salvarOcorrenciasDaTurma(codigoTurma, ocorrencias);
+    limparRascunhoFormulario("formOcorrencia");
     fecharModalOcorrencia();
     renderizarDetalhesTurmaNaPagina();
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+    [
+        "formCadastroTurma",
+        "formCadastroSeeduc",
+        "formCadastroSaep",
+        "formCadastroAcaoSaep",
+        "formCadastroAvaliacaoSaep",
+        "formInformativoPlataforma",
+        "formDatasSaepPlataforma",
+        "formEtapasAcesso",
+        "formObservacaoEtapa",
+        "formHistoricoCadastroSaep",
+        "formRegistroSaep",
+        "formOcorrencia"
+    ].forEach(configurarPersistenciaRascunhoFormulario);
+
     await inicializarSincronizacaoRemota();
     renderizarPaginaAtual();
 
