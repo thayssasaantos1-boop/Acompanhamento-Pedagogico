@@ -40,6 +40,22 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "publish-saep-tab-fix",
+			"type": "shell",
+			"command": "git add app.js ; git commit -m 'Corrige persistencia das abas SAEP' ; git push origin main",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "publish-final-saep-round",
+			"type": "shell",
+			"command": "git add SAEP.html SAEPDetalhes.html app.js style.css ; git commit -m 'Publica ajustes finais do fluxo SAEP' ; git push origin main",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

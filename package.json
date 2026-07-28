@@ -1,0 +1,15 @@
+{
+  "name": "acompanhamento-pedagogico-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "multer": "^1.4.4",
+    "xlsx": "^0.18.0",
+    "sqlite3": "^5.1.0"
+  }
+}

@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAEP - Detalhes da turma</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
 </head>
 <body>
     <div class="saep-detail-shell">
@@ -15,6 +18,7 @@
                 <span>Gestão pedagógica</span>
             </div>
             <button type="button" class="saep-sidebar__item active" data-aba="resumo">Resumo</button>
+            <button type="button" class="saep-sidebar__item" data-aba="diagnosticas">Avaliações Diagnósticas</button>
             <button type="button" class="saep-sidebar__item" data-aba="plano">Plano de Ação</button>
             <button type="button" class="saep-sidebar__item" data-aba="objetivos">Simulados Objetivos</button>
             <button type="button" class="saep-sidebar__item" data-aba="praticos">Simulados Práticos</button>
@@ -76,6 +80,8 @@
                     </div>
                 </div>
 
+                <div id="saepResumoDashboard" class="saep-resumo-dashboard"></div>
+
                 <div class="saep-card saep-full-width">
                     <div class="saep-card__header">
                         <h3>Análise dos dados importados</h3>
@@ -84,10 +90,18 @@
                 </div>
             </section>
 
+            <section id="saepSectionDiagnosticas" class="saep-section" style="display:none;">
+                <div class="saep-toolbar">
+                    <h2>Avaliações Diagnósticas</h2>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoDiagnostica">Cadastrar Avaliação Diagnóstica</button>
+                </div>
+                <div id="saepListaDiagnosticas" class="saep-diagnosticas-list"></div>
+            </section>
+
             <section id="saepSectionPlano" class="saep-section" style="display:none;">
                 <div class="saep-toolbar">
                     <h2>Plano de Ação</h2>
-                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAcao">Nova ação</button>
+                    <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAcao">Cadastrar Plano de Ação</button>
                 </div>
                 <div id="saepTabelaPlano"></div>
             </section>
@@ -111,8 +125,8 @@
             <section id="saepSectionHistorico" class="saep-section" style="display:none;">
                 <div class="saep-card">
                     <div class="saep-card__header">
-                        <h3>Histórico da turma</h3>
-                        <button type="button" class="o-container__turmas__cadastrar" id="btnCadastroHistoricoSaep">Cadastro SAEP</button>
+                        <h3>Histórico escolar</h3>
+                        <button type="button" class="o-container__turmas__cadastrar" id="btnCadastroHistoricoSaep">Adicionar Registro</button>
                     </div>
                     <div id="saepHistoricoTabs" class="saep-historico-tabs">
                         <button type="button" class="saep-historico-tab active" data-subaba="saep">SAEP</button>
@@ -127,8 +141,8 @@
                 <div class="saep-plataformas-stack">
                     <div class="saep-card">
                         <div class="saep-card__header">
-                            <h3>Mural em Destaque</h3>
-                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarInformativos">Cadastrar informativos</button>
+                            <h3>Mural de Informativos</h3>
+                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarInformativos">Novo Informativo</button>
                         </div>
                         <div id="saepMuralDestaque"></div>
                     </div>
@@ -145,8 +159,8 @@
 
                     <div class="saep-card">
                         <div class="saep-card__header">
-                            <h3>Etapas de Acesso e Ciclos</h3>
-                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarEtapasAcesso">Cadastrar informações</button>
+                            <h3>Etapas do Processo</h3>
+                            <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarEtapasAcesso">Cadastrar Etapa</button>
                         </div>
                         <div id="saepTabelaEtapasAcesso"></div>
                     </div>
@@ -166,8 +180,12 @@
                         <input id="dataSaepObjetivo" type="date" required>
                     </label>
                     <label>
-                        SAEP Prático
-                        <input id="dataSaepPratico" type="date" required>
+                        SAEP Prático - Início
+                        <input id="dataSaepPraticoInicio" type="date" required>
+                    </label>
+                    <label>
+                        SAEP Prático - Fim
+                        <input id="dataSaepPraticoFim" type="date" required>
                     </label>
                 </div>
                 <div class="form-actions">
@@ -178,9 +196,36 @@
         </div>
     </div>
 
+    <div id="modalCadastroDiagnostica" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Cadastrar Avaliação Diagnóstica</h3>
+            <form id="formCadastroDiagnostica">
+                <div class="form-grid">
+                    <label>
+                        Data da aplicação
+                        <input id="diagnosticaDataAplicacao" type="date" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Arquivo Excel
+                        <input id="diagnosticaArquivo" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Observação
+                        <textarea id="diagnosticaObservacao" rows="4" placeholder="Opcional"></textarea>
+                    </label>
+                </div>
+                <div id="diagnosticaLoading" class="saep-muted" style="display:none;">Processando upload...</div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarDiagnostica">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modalCadastroAcaoSaep" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3 id="tituloModalAcaoSaep">Nova ação</h3>
+            <h3 id="tituloModalAcaoSaep">Cadastrar Plano de Ação</h3>
             <form id="formCadastroAcaoSaep" onsubmit="salvarAcaoSaep(event)">
                 <input type="hidden" id="acaoIdSaep" value="">
                 <input type="hidden" id="acaoTurmaSaep" value="">
@@ -190,16 +235,13 @@
                         <input id="acaoTituloSaep" type="text" required>
                     </label>
                     <label>
-                        Data
-                        <input id="acaoDataSaep" type="date" required>
-                    </label>
-                    <label>
                         Responsável
                         <input id="acaoResponsavelSaep" type="text" required>
                     </label>
                     <label>
-                        Status
+                        Andamento
                         <select id="acaoStatusSaep">
+                            <option value="A iniciar">A iniciar</option>
                             <option value="Em andamento">Em andamento</option>
                             <option value="Concluído">Concluído</option>
                         </select>
@@ -271,11 +313,20 @@
 
     <div id="modalInformativoPlataforma" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3>Cadastrar informativo</h3>
+            <h3 id="tituloModalInformativoPlataforma">Novo Informativo</h3>
             <form id="formInformativoPlataforma">
+                <input type="hidden" id="informativoIdPlataforma" value="">
                 <div class="form-grid">
+                    <label>
+                        Título
+                        <input id="informativoTituloPlataforma" type="text" maxlength="80" required>
+                    </label>
+                    <label>
+                        Data de publicação
+                        <input id="informativoDataPublicacaoPlataforma" type="date" required>
+                    </label>
                     <label class="saep-full-width">
-                        Informativo
+                        Texto
                         <textarea id="informativoPlataformaTexto" rows="5" placeholder="Escreva o recado geral para o mural..." required></textarea>
                     </label>
                 </div>
@@ -382,7 +433,7 @@
 
     <div id="modalHistoricoCadastroSaep" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3>Cadastro SAEP</h3>
+            <h3>Adicionar registro</h3>
             <form id="formHistoricoCadastroSaep">
                 <input id="histRegistroId" type="hidden" value="">
                 <div class="form-grid">
@@ -391,16 +442,19 @@
                         <input id="histAnoSaep" type="number" min="2000" step="1" required>
                     </label>
                     <label>
-                        Nota da Escola
+                        Segmento
+                        <select id="histSegmentoSaep" required>
+                            <option value="">Selecione</option>
+                            <option value="Eletrotécnica">Eletrotécnica</option>
+                            <option value="Mecânica">Mecânica</option>
+                            <option value="Logística">Logística</option>
+                            <option value="Automação">Automação</option>
+                            <option value="Desenvolvimento de Sistemas">Desenvolvimento de Sistemas</option>
+                        </select>
+                    </label>
+                    <label>
+                        Nota Geral da Escola
                         <input id="histNotaEscola" type="number" step="0.1" min="0" required>
-                    </label>
-                    <label>
-                        Curso
-                        <input id="histCursoSaep" type="text" required>
-                    </label>
-                    <label>
-                        Nota do Curso
-                        <input id="histNotaCurso" type="number" step="0.1" min="0" required>
                     </label>
                     <label>
                         Nota da Prova Objetiva
@@ -416,6 +470,18 @@
                     <button type="button" class="btn-secondary" id="btnCancelarHistoricoCadastroSaep">Cancelar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="modalExcluirHistoricoEscolar" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Excluir registro</h3>
+            <p class="saep-muted">Deseja realmente excluir este registro do histórico escolar?</p>
+            <input id="histRegistroExcluirId" type="hidden" value="">
+            <div class="form-actions">
+                <button type="button" class="btn-delete" id="btnConfirmarExcluirHistoricoEscolar">Excluir</button>
+                <button type="button" class="btn-secondary" id="btnCancelarExcluirHistoricoEscolar">Cancelar</button>
+            </div>
         </div>
     </div>
 
