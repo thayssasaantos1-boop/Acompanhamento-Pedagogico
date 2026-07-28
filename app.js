@@ -876,9 +876,10 @@ function carregarOcorrenciasDaTurma(codigoTurma) {
         return [];
     }
 
-    return ocorrencias.map((item) => {
+    return ocorrencias.map((item, index) => {
         if (typeof item === "string") {
             return {
+                id: item?.id || `${codigoTurma}-${index + 1}`,
                 aluno: item,
                 tipo: "Pedagógica",
                 descricao: item,
@@ -887,6 +888,7 @@ function carregarOcorrenciasDaTurma(codigoTurma) {
         }
 
         return {
+            id: item?.id || `${codigoTurma}-${index + 1}`,
             aluno: item?.aluno || "",
             tipo: item?.tipo || "Pedagógica",
             descricao: item?.descricao || "",
@@ -3688,6 +3690,27 @@ function mostrarAbaSaep(aba, turmaSelecionada = null) {
     `;
 }
 
+function excluirAlunoDaTurma(codigoTurma, nomeAluno) {
+    const nomeNormalizado = String(nomeAluno || "").trim().toLowerCase();
+    if (!nomeNormalizado) {
+        return;
+    }
+
+    const confirmacao = window.confirm(`Deseja realmente excluir o nome ${nomeAluno} desta turma?`);
+    if (!confirmacao) {
+        return;
+    }
+
+    const alunosExistentes = carregarAlunosDaTurma(codigoTurma);
+    const alunosAtualizados = alunosExistentes.filter((aluno) => String(aluno || "").trim().toLowerCase() !== nomeNormalizado);
+
+    const ocorrencias = carregarOcorrenciasDaTurma(codigoTurma).filter((item) => String(item?.aluno || "").trim().toLowerCase() !== nomeNormalizado);
+
+    salvarAlunosDaTurma(codigoTurma, alunosAtualizados);
+    salvarOcorrenciasDaTurma(codigoTurma, ocorrencias);
+    renderizarDetalhesTurmaNaPagina();
+}
+
 function renderizarDetalhesTurmaNaPagina() {
     const codigoTurmaParam = new URLSearchParams(window.location.search).get("turma");
     const codigoTurmaSalvo = sessionStorage.getItem(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE);
@@ -3764,7 +3787,11 @@ function renderizarDetalhesTurmaNaPagina() {
                     <strong>${aluno}</strong>
                     ${ocorrenciasAluno.length > 0 ? `<span class="student-card__badge">${ocorrenciasAluno.length} ocorrência${ocorrenciasAluno.length > 1 ? "s" : ""}</span>` : '<span class="student-card__badge student-card__badge--muted">Sem ocorrências</span>'}
                 </div>
-                <button type="button" class="btn-primary student-card__button">Cadastrar ocorrência</button>
+                <div class="student-card__actions">
+                    <button type="button" class="btn-secondary student-card__button" data-editar-ocorrencia="${aluno}">Editar ocorrência</button>
+                    <button type="button" class="btn-delete student-card__button" data-excluir-aluno="${aluno}">Excluir nome</button>
+                    <button type="button" class="btn-primary student-card__button">Cadastrar ocorrência</button>
+                </div>
             </div>
             <div class="student-card__occurrences">
                 ${ocorrenciasAluno.length > 0 ? ocorrenciasAluno.map((item) => `
@@ -3776,8 +3803,18 @@ function renderizarDetalhesTurmaNaPagina() {
             </div>
         `;
 
-        const botao = card.querySelector("button");
+        const botao = card.querySelector("button.btn-primary");
         botao.addEventListener("click", () => abrirModalOcorrencia(codigoTurma, aluno));
+
+        const botaoEditar = card.querySelector("button[data-editar-ocorrencia]");
+        botaoEditar?.addEventListener("click", () => {
+            const ocorrenciaSelecionada = ocorrenciasAluno[ocorrenciasAluno.length - 1] || null;
+            abrirModalOcorrencia(codigoTurma, aluno, ocorrenciaSelecionada);
+        });
+
+        const botaoExcluir = card.querySelector("button[data-excluir-aluno]");
+        botaoExcluir?.addEventListener("click", () => excluirAlunoDaTurma(codigoTurma, aluno));
+
         fragmento.appendChild(card);
     });
 
@@ -3804,7 +3841,7 @@ function cadastrarAlunosDaTurma(codigoTurma) {
     renderizarDetalhesTurmaNaPagina();
 }
 
-function abrirModalOcorrencia(codigoTurma, alunoNome = "") {
+function abrirModalOcorrencia(codigoTurma, alunoNome = "", ocorrencia = null) {
     const modal = document.getElementById("modalOcorrencia");
     const titulo = document.getElementById("modalTituloOcorrencia");
     const campoCodigo = document.getElementById("codigoTurmaOcorrencia");
@@ -3812,6 +3849,8 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "") {
     const nomeAluno = document.getElementById("nomeAlunoOcorrencia");
     const descricao = document.getElementById("descricaoOcorrencia");
     const assistido = document.getElementById("textoAssistido");
+    const campoId = document.getElementById("ocorrenciaIdEdicao");
+    const selectTipo = document.getElementById("tipoOcorrencia");
 
     if (modal) {
         modal.classList.add("active");
@@ -3830,21 +3869,24 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "") {
         nomeAluno.value = alunoNome;
     }
 
+    if (campoId) {
+        campoId.value = ocorrencia?.id || "";
+    }
+
     if (titulo) {
-        titulo.textContent = alunoNome ? `Registrar ocorrência - ${alunoNome}` : "Registrar ocorrência";
+        titulo.textContent = ocorrencia ? `Editar ocorrência - ${alunoNome}` : (alunoNome ? `Registrar ocorrência - ${alunoNome}` : "Registrar ocorrência");
     }
 
     if (descricao) {
-        descricao.value = "";
+        descricao.value = ocorrencia?.descricao || "";
     }
 
     if (assistido) {
-        assistido.value = "";
+        assistido.value = ocorrencia?.textoAssistido || "";
     }
 
-    const selectTipo = document.getElementById("tipoOcorrencia");
     if (selectTipo) {
-        selectTipo.value = "Pedagógica";
+        selectTipo.value = ocorrencia?.tipo || "Pedagógica";
     }
 
     const botaoGerar = document.getElementById("btnGerarTexto");
@@ -3943,6 +3985,7 @@ function fecharModalOcorrencia() {
     const nome = document.getElementById("nomeAlunoOcorrencia");
     const descricao = document.getElementById("descricaoOcorrencia");
     const textoAssistido = document.getElementById("textoAssistido");
+    const ocorrenciaId = document.getElementById("ocorrenciaIdEdicao");
 
     if (codigo) {
         codigo.value = "";
@@ -3958,6 +4001,9 @@ function fecharModalOcorrencia() {
     }
     if (textoAssistido) {
         textoAssistido.value = "";
+    }
+    if (ocorrenciaId) {
+        ocorrenciaId.value = "";
     }
 }
 
@@ -4012,6 +4058,7 @@ function salvarOcorrencia() {
     const tipo = document.getElementById("tipoOcorrencia").value;
     const descricao = document.getElementById("descricaoOcorrencia").value.trim();
     const assistido = document.getElementById("textoAssistido").value.trim();
+    const ocorrenciaId = document.getElementById("ocorrenciaIdEdicao").value.trim();
 
     if (!codigoTurma || !nomeAluno || !descricao) {
         alert("Informe o aluno e a descrição da ocorrência.");
@@ -4020,7 +4067,22 @@ function salvarOcorrencia() {
 
     const ocorrencias = carregarOcorrenciasDaTurma(codigoTurma);
     const textoFinal = assistido || `Ocorrência ${tipo} registrada para ${nomeAluno}. ${descricao}`;
-    ocorrencias.push({ aluno: nomeAluno, tipo, descricao: textoFinal, textoAssistido: assistido });
+
+    if (ocorrenciaId) {
+        const indice = ocorrencias.findIndex((item) => item.id === ocorrenciaId);
+        if (indice >= 0) {
+            ocorrencias[indice] = {
+                ...ocorrencias[indice],
+                aluno: nomeAluno,
+                tipo,
+                descricao: textoFinal,
+                textoAssistido: assistido
+            };
+        }
+    } else {
+        ocorrencias.push({ id: `${Date.now()}`, aluno: nomeAluno, tipo, descricao: textoFinal, textoAssistido: assistido });
+    }
+
     salvarOcorrenciasDaTurma(codigoTurma, ocorrencias);
     limparRascunhoFormulario("formOcorrencia");
     fecharModalOcorrencia();
