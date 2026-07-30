@@ -37,7 +37,12 @@ const SAEP_HISTORICO_INDICADORES_STORAGE_KEY = "saepHistoricoIndicadores";
 const SAEP_HISTORICO_ESCOLA_STORAGE_KEY = "saepHistoricoEscolar";
 const SAEP_ABA_ATIVA_SESSION_STORAGE = "saepAbaAtivaPorTurma";
 const SAEP_HISTORICO_SUBABA_SESSION_STORAGE = "saepHistoricoSubAbaPorTurma";
+const SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY = "saepDiagnosticasManuais";
+const SAEP_ALUNOS_OBSERVACOES_STORAGE_KEY = "saepAlunosObservacoes";
+const SAEP_SUBMENU_PRINCIPAL_SESSION_STORAGE = "saepSubmenuPrincipalPorTurma";
 const DIAGNOSTICAS_API_BASE_URL = "http://localhost:3000";
+let persistenciaGlobalFormulariosAtiva = false;
+let observadorFormulariosPersistencia = null;
 let planosResumoSaepPorTurma = {};
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
 const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
@@ -130,6 +135,10 @@ function configurarPersistenciaRascunhoFormulario(formId) {
         return;
     }
 
+    if (form.dataset.rascunhoConfigurado === "1") {
+        return;
+    }
+
     const salvarAtual = () => salvarRascunhoFormulario(formId, form);
 
     form.querySelectorAll("input, textarea, select").forEach((campo) => {
@@ -139,6 +148,86 @@ function configurarPersistenciaRascunhoFormulario(formId) {
 
     form.addEventListener("submit", salvarAtual);
     restaurarRascunhoFormulario(formId, form);
+    form.dataset.rascunhoConfigurado = "1";
+}
+
+function obterValorPersistente(chave) {
+    if (!chave) {
+        return "";
+    }
+
+    return localStorage.getItem(chave) ?? sessionStorage.getItem(chave) ?? "";
+}
+
+function salvarValorPersistente(chave, valor) {
+    if (!chave) {
+        return;
+    }
+
+    localStorage.setItem(chave, valor);
+    sessionStorage.setItem(chave, valor);
+}
+
+function configurarPersistenciaRascunhoTodosFormularios() {
+    document.querySelectorAll("form[id]").forEach((form) => {
+        if (form.id) {
+            configurarPersistenciaRascunhoFormulario(form.id);
+        }
+    });
+}
+
+function salvarRascunhoTodosFormularios() {
+    document.querySelectorAll("form[id]").forEach((form) => {
+        if (form.id) {
+            salvarRascunhoFormulario(form.id, form);
+        }
+    });
+}
+
+function configurarReforcoPersistenciaGlobal() {
+    if (persistenciaGlobalFormulariosAtiva) {
+        configurarPersistenciaRascunhoTodosFormularios();
+        return;
+    }
+
+    persistenciaGlobalFormulariosAtiva = true;
+    configurarPersistenciaRascunhoTodosFormularios();
+
+    const salvarTudo = () => salvarRascunhoTodosFormularios();
+
+    window.addEventListener("beforeunload", salvarTudo);
+    window.addEventListener("pagehide", salvarTudo);
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            salvarTudo();
+        }
+    });
+
+    if (typeof MutationObserver !== "undefined" && document.body) {
+        observadorFormulariosPersistencia = new MutationObserver((mutacoes) => {
+            let precisaConfigurar = false;
+            mutacoes.forEach((mutacao) => {
+                mutacao.addedNodes.forEach((node) => {
+                    if (!(node instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    if (node.matches?.("form[id]") || node.querySelector?.("form[id]")) {
+                        precisaConfigurar = true;
+                    }
+                });
+            });
+
+            if (precisaConfigurar) {
+                configurarPersistenciaRascunhoTodosFormularios();
+            }
+        });
+
+        observadorFormulariosPersistencia.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
 }
 
 function normalizarUrlSync(url) {
@@ -1739,13 +1828,11 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
     const modalDatas = document.getElementById("modalDatasSaepPlataforma");
     const modalEtapas = document.getElementById("modalEtapasAcesso");
 
-    if (!botaoInformativo || !botaoDatasSaep || !botaoEtapas || !formInformativo || !formDatas || !formEtapas || !selectTipoProva || !inputCodigoTurma || !inputInstrutor || !modalInformativo || !modalDatas || !modalEtapas) {
+    if (!botaoInformativo || !formInformativo || !modalInformativo) {
         return;
     }
 
     renderizarMuralPlataformas(codigoTurma);
-    renderizarDatasSaepPlataforma(codigoTurma);
-    renderizarTabelaEtapasAcesso(codigoTurma);
 
     botaoInformativo.onclick = () => {
         const chaveRascunho = obterChaveRascunhoFormulario("formInformativoPlataforma");
@@ -1806,135 +1893,157 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
         renderizarMuralPlataformas(codigoTurma);
     };
 
-    botaoDatasSaep.onclick = () => {
-        const chaveRascunho = obterChaveRascunhoFormulario("formDatasSaepPlataforma");
-        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+    if (botaoDatasSaep && formDatas && selectTipoProva && inputCodigoTurma && inputInstrutor && modalDatas) {
+        botaoDatasSaep.onclick = () => {
+            const chaveRascunho = obterChaveRascunhoFormulario("formDatasSaepPlataforma");
+            const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
 
-        if (!temRascunho) {
-            formDatas.reset();
-            inputCodigoTurma.value = codigoTurma;
-            inputInstrutor.value = instrutorPadrao || "";
-            selectTipoProva.value = "objetiva";
-            atualizarCamposTipoProvaPlataforma();
-        } else {
-            restaurarRascunhoFormulario("formDatasSaepPlataforma", formDatas);
-        }
-
-        abrirModalPlataforma("modalDatasSaepPlataforma");
-    };
-
-    document.getElementById("btnCancelarDatasSaepPlataforma").onclick = () => fecharModalPlataforma("modalDatasSaepPlataforma");
-
-    selectTipoProva.onchange = atualizarCamposTipoProvaPlataforma;
-
-    formDatas.onsubmit = (event) => {
-        event.preventDefault();
-
-        const tipo = selectTipoProva.value;
-        const codigoTurmaInformado = inputCodigoTurma.value.trim();
-        const instrutor = inputInstrutor.value.trim();
-        const dataObjetiva = document.getElementById("dataObjetivaPlataforma").value;
-        const dataPraticaInicio = document.getElementById("dataPraticaInicioPlataforma").value;
-        const dataPraticaFim = document.getElementById("dataPraticaFimPlataforma").value;
-
-        if (!codigoTurmaInformado || !instrutor) {
-            alert("Informe código da turma e instrutor.");
-            return;
-        }
-
-        if (tipo === "objetiva" && !dataObjetiva) {
-            alert("Informe a data da prova objetiva.");
-            return;
-        }
-
-        if (tipo === "pratica" && (!dataPraticaInicio || !dataPraticaFim)) {
-            alert("Informe início e término da prova prática.");
-            return;
-        }
-
-        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
-            ...dadosTurma,
-            datasSaep: [...dadosTurma.datasSaep, {
-                id: `${Date.now()}`,
-                tipo,
-                codigoTurma: codigoTurmaInformado,
-                instrutor,
-                data: tipo === "objetiva" ? dataObjetiva : "",
-                dataInicio: tipo === "pratica" ? dataPraticaInicio : "",
-                dataFim: tipo === "pratica" ? dataPraticaFim : "",
-                criadoEm: new Date().toISOString()
-            }]
-        }));
-
-        fecharModalPlataforma("modalDatasSaepPlataforma");
-        renderizarDatasSaepPlataforma(codigoTurma);
-    };
-
-    botaoEtapas.onclick = () => {
-        const chaveRascunho = obterChaveRascunhoFormulario("formEtapasAcesso");
-        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
-
-        if (!temRascunho) {
-            formEtapas.reset();
-            document.getElementById("etapaAcessoId").value = "";
-            document.getElementById("tituloModalEtapasAcesso").textContent = "Cadastrar Etapas de Acesso";
-        } else {
-            restaurarRascunhoFormulario("formEtapasAcesso", formEtapas);
-        }
-
-        abrirModalPlataforma("modalEtapasAcesso");
-    };
-
-    document.getElementById("btnCancelarEtapasAcesso").onclick = () => fecharModalPlataforma("modalEtapasAcesso");
-
-    formEtapas.onsubmit = (event) => {
-        event.preventDefault();
-
-        const etapaId = document.getElementById("etapaAcessoId").value;
-        const dataInicio = document.getElementById("etapaDataInicio").value;
-        const dataFim = document.getElementById("etapaDataFim").value;
-        const acao = document.getElementById("etapaAcao").value.trim();
-        const status = document.getElementById("etapaStatus").value;
-
-        if (!dataInicio || !dataFim || !acao || !status) {
-            alert("Preencha todos os campos da etapa.");
-            return;
-        }
-
-        if (new Date(dataFim) < new Date(dataInicio)) {
-            alert("A data de fim deve ser maior ou igual à data de início.");
-            return;
-        }
-
-        atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => {
-            if (etapaId) {
-                return {
-                    ...dadosTurma,
-                    etapas: dadosTurma.etapas.map((item) => item.id === etapaId
-                        ? { ...item, dataInicio, dataFim, acao, status }
-                        : item)
-                };
+            if (!temRascunho) {
+                formDatas.reset();
+                inputCodigoTurma.value = codigoTurma;
+                inputInstrutor.value = instrutorPadrao || "";
+                selectTipoProva.value = "objetiva";
+                atualizarCamposTipoProvaPlataforma();
+            } else {
+                restaurarRascunhoFormulario("formDatasSaepPlataforma", formDatas);
             }
 
-            return {
-                ...dadosTurma,
-                etapas: [...dadosTurma.etapas, {
-                    id: `${Date.now()}`,
-                    dataInicio,
-                    dataFim,
-                    acao,
-                    status,
-                    observacoes: ""
-                }]
-            };
-        });
+            abrirModalPlataforma("modalDatasSaepPlataforma");
+        };
 
-        formEtapas.reset();
-        document.getElementById("etapaAcessoId").value = "";
-        document.getElementById("tituloModalEtapasAcesso").textContent = "Cadastrar Etapa do Processo";
-        fecharModalPlataforma("modalEtapasAcesso");
-        renderizarTabelaEtapasAcesso(codigoTurma);
-    };
+        const botaoCancelarDatas = document.getElementById("btnCancelarDatasSaepPlataforma");
+        if (botaoCancelarDatas) {
+            botaoCancelarDatas.onclick = () => fecharModalPlataforma("modalDatasSaepPlataforma");
+        }
+
+        selectTipoProva.onchange = atualizarCamposTipoProvaPlataforma;
+
+        formDatas.onsubmit = (event) => {
+            event.preventDefault();
+
+            const tipo = selectTipoProva.value;
+            const codigoTurmaInformado = inputCodigoTurma.value.trim();
+            const instrutor = inputInstrutor.value.trim();
+            const dataObjetiva = document.getElementById("dataObjetivaPlataforma")?.value;
+            const dataPraticaInicio = document.getElementById("dataPraticaInicioPlataforma")?.value;
+            const dataPraticaFim = document.getElementById("dataPraticaFimPlataforma")?.value;
+
+            if (!codigoTurmaInformado || !instrutor) {
+                alert("Informe código da turma e instrutor.");
+                return;
+            }
+
+            if (tipo === "objetiva" && !dataObjetiva) {
+                alert("Informe a data da prova objetiva.");
+                return;
+            }
+
+            if (tipo === "pratica" && (!dataPraticaInicio || !dataPraticaFim)) {
+                alert("Informe início e término da prova prática.");
+                return;
+            }
+
+            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => ({
+                ...dadosTurma,
+                datasSaep: [...dadosTurma.datasSaep, {
+                    id: `${Date.now()}`,
+                    tipo,
+                    codigoTurma: codigoTurmaInformado,
+                    instrutor,
+                    data: tipo === "objetiva" ? dataObjetiva : "",
+                    dataInicio: tipo === "pratica" ? dataPraticaInicio : "",
+                    dataFim: tipo === "pratica" ? dataPraticaFim : "",
+                    criadoEm: new Date().toISOString()
+                }]
+            }));
+
+            fecharModalPlataforma("modalDatasSaepPlataforma");
+            renderizarDatasSaepPlataforma(codigoTurma);
+        };
+    }
+
+    if (botaoEtapas && formEtapas && modalEtapas) {
+        botaoEtapas.onclick = () => {
+            const chaveRascunho = obterChaveRascunhoFormulario("formEtapasAcesso");
+            const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+            if (!temRascunho) {
+                formEtapas.reset();
+                const campoEtapaId = document.getElementById("etapaAcessoId");
+                if (campoEtapaId) {
+                    campoEtapaId.value = "";
+                }
+                const tituloEtapas = document.getElementById("tituloModalEtapasAcesso");
+                if (tituloEtapas) {
+                    tituloEtapas.textContent = "Cadastrar Etapas de Acesso";
+                }
+            } else {
+                restaurarRascunhoFormulario("formEtapasAcesso", formEtapas);
+            }
+
+            abrirModalPlataforma("modalEtapasAcesso");
+        };
+
+        const botaoCancelarEtapas = document.getElementById("btnCancelarEtapasAcesso");
+        if (botaoCancelarEtapas) {
+            botaoCancelarEtapas.onclick = () => fecharModalPlataforma("modalEtapasAcesso");
+        }
+
+        formEtapas.onsubmit = (event) => {
+            event.preventDefault();
+
+            const etapaId = document.getElementById("etapaAcessoId")?.value || "";
+            const dataInicio = document.getElementById("etapaDataInicio")?.value;
+            const dataFim = document.getElementById("etapaDataFim")?.value;
+            const acao = document.getElementById("etapaAcao")?.value?.trim();
+            const status = document.getElementById("etapaStatus")?.value;
+
+            if (!dataInicio || !dataFim || !acao || !status) {
+                alert("Preencha todos os campos da etapa.");
+                return;
+            }
+
+            if (new Date(dataFim) < new Date(dataInicio)) {
+                alert("A data de fim deve ser maior ou igual à data de início.");
+                return;
+            }
+
+            atualizarDadosPlataformasTurma(codigoTurma, (dadosTurma) => {
+                if (etapaId) {
+                    return {
+                        ...dadosTurma,
+                        etapas: dadosTurma.etapas.map((item) => item.id === etapaId
+                            ? { ...item, dataInicio, dataFim, acao, status }
+                            : item)
+                    };
+                }
+
+                return {
+                    ...dadosTurma,
+                    etapas: [...dadosTurma.etapas, {
+                        id: `${Date.now()}`,
+                        dataInicio,
+                        dataFim,
+                        acao,
+                        status,
+                        observacoes: ""
+                    }]
+                };
+            });
+
+            formEtapas.reset();
+            const campoEtapaId = document.getElementById("etapaAcessoId");
+            if (campoEtapaId) {
+                campoEtapaId.value = "";
+            }
+            const tituloEtapas = document.getElementById("tituloModalEtapasAcesso");
+            if (tituloEtapas) {
+                tituloEtapas.textContent = "Cadastrar Etapa do Processo";
+            }
+            fecharModalPlataforma("modalEtapasAcesso");
+            renderizarTabelaEtapasAcesso(codigoTurma);
+        };
+    }
 
     modalInformativo.onclick = (event) => {
         if (event.target === modalInformativo) {
@@ -1942,17 +2051,21 @@ function configurarPlataformasSaep(codigoTurma, instrutorPadrao) {
         }
     };
 
-    modalDatas.onclick = (event) => {
-        if (event.target === modalDatas) {
-            fecharModalPlataforma("modalDatasSaepPlataforma");
-        }
-    };
+    if (modalDatas) {
+        modalDatas.onclick = (event) => {
+            if (event.target === modalDatas) {
+                fecharModalPlataforma("modalDatasSaepPlataforma");
+            }
+        };
+    }
 
-    modalEtapas.onclick = (event) => {
-        if (event.target === modalEtapas) {
-            fecharModalPlataforma("modalEtapasAcesso");
-        }
-    };
+    if (modalEtapas) {
+        modalEtapas.onclick = (event) => {
+            if (event.target === modalEtapas) {
+                fecharModalPlataforma("modalEtapasAcesso");
+            }
+        };
+    }
 }
 
 function carregarHistoricoImportacaoSaep() {
@@ -1985,7 +2098,7 @@ function renderizarHistoricoImportacaoSaep(codigoTurma) {
     const historicoTurma = obterHistoricoImportacaoTurmaSaep(codigoTurma);
 
     if (historicoTurma.length === 0) {
-        container.innerHTML = '<div class="saep-empty-state">Nenhum simulado importado para esta turma.</div>';
+        container.innerHTML = '<div class="saep-empty-state">Nenhuma avaliação importada para esta turma.</div>';
         return;
     }
 
@@ -2022,37 +2135,49 @@ function exibirAbaSaepDetalhes(aba) {
     const secoes = document.querySelectorAll(".saep-section");
     const botoesSidebar = document.querySelectorAll(".saep-sidebar__item");
     const codigoTurma = new URLSearchParams(window.location.search).get("turma") || "";
+    const abaNormalizada = aba === "historico" || aba === "plataformas" ? "saep" : aba;
 
     secoes.forEach((secao) => {
         secao.style.display = "none";
     });
 
-    const secaoAlvo = document.getElementById(`saepSection${aba.charAt(0).toUpperCase() + aba.slice(1)}`);
+    const secaoAlvo = document.getElementById(`saepSection${abaNormalizada.charAt(0).toUpperCase() + abaNormalizada.slice(1)}`);
     if (secaoAlvo) {
         secaoAlvo.style.display = "block";
     }
 
-    if (codigoTurma && aba) {
-        salvarAbaAtivaSaep(codigoTurma, aba);
+    if (codigoTurma && abaNormalizada) {
+        salvarAbaAtivaSaep(codigoTurma, abaNormalizada);
     }
 
-    if (aba === "resumo") {
+    if (abaNormalizada === "resumo") {
         if (codigoTurma) {
             renderizarResumoPedagogicoSaep(codigoTurma);
         }
     }
 
-    if (aba === "diagnosticas" && codigoTurma) {
+    if (abaNormalizada === "diagnosticas" && codigoTurma) {
         renderizarAvaliacoesDiagnosticas(codigoTurma);
     }
 
+    if (abaNormalizada === "alunos" && codigoTurma) {
+        renderizarAlunosDiagnosticaSaep(codigoTurma);
+    }
+
+    if (abaNormalizada === "saep" && codigoTurma) {
+        const submenuSaep = aba === "plataformas" || aba === "historico"
+            ? aba
+            : obterSubmenuPrincipalSaep(codigoTurma);
+        mostrarSubmenuSaepDetalhes(submenuSaep, codigoTurma);
+    }
+
     botoesSidebar.forEach((item) => {
-        item.classList.toggle("active", item.dataset.aba === aba);
+        item.classList.toggle("active", item.dataset.aba === abaNormalizada);
     });
 }
 
 function carregarMapaAbasSaep() {
-    const dados = sessionStorage.getItem(SAEP_ABA_ATIVA_SESSION_STORAGE);
+    const dados = obterValorPersistente(SAEP_ABA_ATIVA_SESSION_STORAGE);
     if (!dados) {
         return {};
     }
@@ -2068,7 +2193,7 @@ function carregarMapaAbasSaep() {
 function salvarAbaAtivaSaep(codigoTurma, aba) {
     const mapa = carregarMapaAbasSaep();
     mapa[codigoTurma] = aba;
-    sessionStorage.setItem(SAEP_ABA_ATIVA_SESSION_STORAGE, JSON.stringify(mapa));
+    salvarValorPersistente(SAEP_ABA_ATIVA_SESSION_STORAGE, JSON.stringify(mapa));
 }
 
 function obterAbaAtivaSaep(codigoTurma) {
@@ -2077,7 +2202,7 @@ function obterAbaAtivaSaep(codigoTurma) {
 }
 
 function carregarMapaSubAbasHistoricoSaep() {
-    const dados = sessionStorage.getItem(SAEP_HISTORICO_SUBABA_SESSION_STORAGE);
+    const dados = obterValorPersistente(SAEP_HISTORICO_SUBABA_SESSION_STORAGE);
     if (!dados) {
         return {};
     }
@@ -2093,12 +2218,65 @@ function carregarMapaSubAbasHistoricoSaep() {
 function salvarSubAbaHistoricoSaep(codigoTurma, subAba) {
     const mapa = carregarMapaSubAbasHistoricoSaep();
     mapa[codigoTurma] = subAba;
-    sessionStorage.setItem(SAEP_HISTORICO_SUBABA_SESSION_STORAGE, JSON.stringify(mapa));
+    salvarValorPersistente(SAEP_HISTORICO_SUBABA_SESSION_STORAGE, JSON.stringify(mapa));
 }
 
 function obterSubAbaHistoricoSaep(codigoTurma) {
     const mapa = carregarMapaSubAbasHistoricoSaep();
     return mapa[codigoTurma] || "saep";
+}
+
+function carregarMapaSubmenuPrincipalSaep() {
+    const dados = obterValorPersistente(SAEP_SUBMENU_PRINCIPAL_SESSION_STORAGE);
+    if (!dados) {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(dados);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function salvarSubmenuPrincipalSaep(codigoTurma, submenu) {
+    if (!codigoTurma || !submenu) {
+        return;
+    }
+
+    const mapa = carregarMapaSubmenuPrincipalSaep();
+    mapa[codigoTurma] = submenu;
+    salvarValorPersistente(SAEP_SUBMENU_PRINCIPAL_SESSION_STORAGE, JSON.stringify(mapa));
+}
+
+function obterSubmenuPrincipalSaep(codigoTurma) {
+    const mapa = carregarMapaSubmenuPrincipalSaep();
+    return mapa[codigoTurma] || "historico";
+}
+
+function mostrarSubmenuSaepDetalhes(submenu, codigoTurmaParam = "") {
+    const codigoTurma = codigoTurmaParam || new URLSearchParams(window.location.search).get("turma") || "";
+    const submenuNormalizado = submenu === "plataformas" ? "plataformas" : "historico";
+    const botoes = document.querySelectorAll("#saepSubmenuPrincipal .seeduc-submenu__item");
+    const painelHistorico = document.getElementById("saepSubmenuHistorico");
+    const painelPlataformas = document.getElementById("saepSubmenuPlataformas");
+
+    botoes.forEach((botao) => {
+        botao.classList.toggle("active", botao.dataset.submenu === submenuNormalizado);
+    });
+
+    if (painelHistorico) {
+        painelHistorico.style.display = submenuNormalizado === "historico" ? "block" : "none";
+    }
+
+    if (painelPlataformas) {
+        painelPlataformas.style.display = submenuNormalizado === "plataformas" ? "block" : "none";
+    }
+
+    if (codigoTurma) {
+        salvarSubmenuPrincipalSaep(codigoTurma, submenuNormalizado);
+    }
 }
 
 function obterWorksheetSaep(workbook, nomeAba) {
@@ -2478,7 +2656,7 @@ async function processarImportacaoSaepDaTurma(codigoTurma) {
         renderizarHistoricoImportacaoSaep(codigoTurma);
         fecharModalAvaliacaoSaep();
         renderizarDetalhesSaep();
-        alert("Arquivo importado com sucesso. A tabela de simulados foi atualizada com a análise do SAEP.");
+        alert("Arquivo importado com sucesso. A tabela de avaliações foi atualizada com a análise do SAEP.");
     } catch (error) {
         console.error("Erro ao importar arquivo SAEP:", error);
         alert(error.message || "Não foi possível importar o arquivo.");
@@ -2943,6 +3121,13 @@ async function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase)
             </div>
             <p class="saep-muted">Cadastre a nota geral da escola, a prova objetiva, a prova prática e o segmento para cada ano.</p>
         </div>
+        <div class="saep-historico-segmentos-wrap">
+            <div class="saep-historico-segmentos-head">
+                <h5>Comparativo entre anos por segmento</h5>
+                <span class="saep-muted">Gráficos em azul SENAI com evolução anual por segmento.</span>
+            </div>
+            <div id="saepHistoricoComparativoSegmentos" class="saep-historico-segmentos"></div>
+        </div>
         ${registrosOrdenados.length === 0 ? `
             <div class="saep-historico-empty">
                 <strong>Nenhum registro encontrado.</strong>
@@ -2988,6 +3173,8 @@ async function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase)
         `).join("")}
     `;
 
+    renderizarGraficosHistoricoPorSegmentoSaep(registrosOrdenados);
+
     container.querySelectorAll("[data-editar-historico]").forEach((botao) => {
         botao.onclick = () => {
             const id = botao.getAttribute("data-editar-historico");
@@ -3009,6 +3196,146 @@ async function renderizarFormularioHistoricoSaep(codigoTurma, curso, resumoBase)
 
     configurarModalHistoricoCadastroSaep(codigoTurma, curso, resumoBase);
     configurarModalExclusaoHistoricoEscolar(codigoTurma, resumoBase);
+}
+
+function obterNumeroHistoricoSaep(valor) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : null;
+}
+
+function calcularMediaHistoricoSaep(valores) {
+    if (!Array.isArray(valores) || valores.length === 0) {
+        return null;
+    }
+
+    const soma = valores.reduce((total, valor) => total + valor, 0);
+    return Number((soma / valores.length).toFixed(2));
+}
+
+function montarSerieHistoricoSegmentoSaep(registrosSegmento) {
+    const porAno = {};
+
+    registrosSegmento.forEach((registro) => {
+        const anoNumerico = Number(registro?.ano || 0);
+        if (!Number.isFinite(anoNumerico) || anoNumerico <= 0) {
+            return;
+        }
+
+        if (!porAno[anoNumerico]) {
+            porAno[anoNumerico] = {
+                escola: [],
+                objetiva: [],
+                pratica: []
+            };
+        }
+
+        const notaEscola = obterNumeroHistoricoSaep(registro?.notaGeralEscola ?? registro?.notaEscola);
+        const notaObjetiva = obterNumeroHistoricoSaep(registro?.notaProvaObjetiva ?? registro?.notaObjetivaSegmento);
+        const notaPratica = obterNumeroHistoricoSaep(registro?.notaProvaPratica ?? registro?.notaPraticaSegmento);
+
+        if (notaEscola !== null) {
+            porAno[anoNumerico].escola.push(notaEscola);
+        }
+        if (notaObjetiva !== null) {
+            porAno[anoNumerico].objetiva.push(notaObjetiva);
+        }
+        if (notaPratica !== null) {
+            porAno[anoNumerico].pratica.push(notaPratica);
+        }
+    });
+
+    return Object.keys(porAno)
+        .map((ano) => Number(ano))
+        .sort((a, b) => a - b)
+        .map((ano) => ({
+            ano: String(ano),
+            notaEscola: calcularMediaHistoricoSaep(porAno[ano].escola),
+            notaObjetiva: calcularMediaHistoricoSaep(porAno[ano].objetiva),
+            notaPratica: calcularMediaHistoricoSaep(porAno[ano].pratica)
+        }));
+}
+
+function renderizarGraficoComparativoSegmentoSaep(containerId, serie) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        return;
+    }
+
+    if (!window.Recharts || !window.React || !window.ReactDOM) {
+        container.innerHTML = '<div class="saep-empty-state">Gráfico indisponível no momento.</div>';
+        return;
+    }
+
+    const { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } = window.Recharts;
+
+    ReactDOM.render(
+        React.createElement(
+            ResponsiveContainer,
+            { width: "100%", height: "100%" },
+            React.createElement(
+                BarChart,
+                { data: serie },
+                React.createElement(CartesianGrid, { strokeDasharray: "3 3" }),
+                React.createElement(XAxis, { dataKey: "ano" }),
+                React.createElement(YAxis, { domain: [0, 10] }),
+                React.createElement(Tooltip, {}),
+                React.createElement(Legend, {}),
+                React.createElement(Bar, { dataKey: "notaEscola", name: "Escola", fill: "#003da5", radius: [4, 4, 0, 0] }),
+                React.createElement(Bar, { dataKey: "notaObjetiva", name: "Objetiva", fill: "#1e6fe8", radius: [4, 4, 0, 0] }),
+                React.createElement(Bar, { dataKey: "notaPratica", name: "Prática", fill: "#60a5fa", radius: [4, 4, 0, 0] })
+            )
+        ),
+        container
+    );
+}
+
+function renderizarGraficosHistoricoPorSegmentoSaep(registros) {
+    const container = document.getElementById("saepHistoricoComparativoSegmentos");
+    if (!container) {
+        return;
+    }
+
+    const registrosValidos = Array.isArray(registros) ? registros : [];
+    if (registrosValidos.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Adicione registros para visualizar o comparativo entre anos por segmento.</div>';
+        return;
+    }
+
+    const agrupado = registrosValidos.reduce((acc, item) => {
+        const segmento = String(item?.segmento || "Sem segmento").trim() || "Sem segmento";
+        if (!acc[segmento]) {
+            acc[segmento] = [];
+        }
+        acc[segmento].push(item);
+        return acc;
+    }, {});
+
+    const segmentos = Object.keys(agrupado).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    container.innerHTML = segmentos.map((segmento, indice) => {
+        const idGrafico = `saepHistoricoSegmentoChart_${indice}`;
+        return `
+            <article class="saep-historico-segment-card">
+                <div class="saep-historico-segment-card__head">
+                    <strong>${segmento}</strong>
+                    <span>${agrupado[segmento].length} registro(s)</span>
+                </div>
+                <div id="${idGrafico}" class="saep-historico-segment-card__chart"></div>
+            </article>
+        `;
+    }).join("");
+
+    segmentos.forEach((segmento, indice) => {
+        const serie = montarSerieHistoricoSegmentoSaep(agrupado[segmento]);
+        if (serie.length === 0) {
+            const alvo = document.getElementById(`saepHistoricoSegmentoChart_${indice}`);
+            if (alvo) {
+                alvo.innerHTML = '<div class="saep-empty-state">Sem anos válidos para este segmento.</div>';
+            }
+            return;
+        }
+
+        renderizarGraficoComparativoSegmentoSaep(`saepHistoricoSegmentoChart_${indice}`, serie);
+    });
 }
 
 function abrirModalHistoricoCadastroSaep(codigoTurma, curso, registro = null, resumoBase = null) {
@@ -3225,18 +3552,18 @@ function renderizarResumoNotasSaep(avaliacoesObjetivo = [], avaliacoesPratico = 
 
     const blocos = [
         {
-            titulo: "Simulados objetivos",
+            titulo: "Avaliações objetivas",
             itens: avaliacoesObjetivo
         },
         {
-            titulo: "Simulados práticos",
+            titulo: "Avaliações práticas",
             itens: avaliacoesPratico
         }
     ];
 
     const possuiNotas = blocos.some((bloco) => bloco.itens.length > 0);
     if (!possuiNotas) {
-        container.innerHTML = '<div class="saep-empty-state">Cadastre notas dos simulados objetivos e práticos para exibir o resumo aqui.</div>';
+        container.innerHTML = '<div class="saep-empty-state">Cadastre notas das avaliações objetivas e práticas para exibir o resumo aqui.</div>';
         return;
     }
 
@@ -3493,7 +3820,7 @@ function renderizarResumoDashboardSaep(codigoTurma) {
             <div class="saep-dashboard-grid">
                 <div class="saep-card">
                     <div class="saep-card__header">
-                        <h3>Evolução das notas dos simulados</h3>
+                        <h3>Evolução das notas das avaliações</h3>
                         <span class="saep-badge">Diagnósticas</span>
                     </div>
                     <div id="saepGraficoEvolucaoDiagnostica" class="saep-chart-area"></div>
@@ -3677,7 +4004,10 @@ function renderizarDetalhesSaep() {
     document.getElementById("saepDetalheTitulo").textContent = turma.codigoTurma;
     document.getElementById("saepDetalheSubtitulo").textContent = `${turma.curso} · ${turma.instrutor} · Fim ${formatarDataParaExibirSaep(turma.dataFim)}`;
 
-    document.getElementById("btnEditarDataSaep").onclick = () => abrirModalCadastroSaep(codigoTurma);
+    const botaoEditarDataSaep = document.getElementById("btnEditarDataSaep");
+    if (botaoEditarDataSaep) {
+        botaoEditarDataSaep.onclick = () => abrirModalCadastroSaep(codigoTurma);
+    }
 
     renderizarResumoPedagogicoSaep(codigoTurma);
 
@@ -3757,7 +4087,10 @@ async function salvarDiagnostica(event, codigoTurma) {
 
     const form = document.getElementById("formCadastroDiagnostica");
     const dataAplicacao = document.getElementById("diagnosticaDataAplicacao")?.value?.trim();
-    const arquivoInput = document.getElementById("diagnosticaArquivo");
+    const notaMedia = document.getElementById("diagnosticaNotaMedia")?.value?.trim();
+    const capacidadesAvaliadasTexto = document.getElementById("diagnosticaCapacidadesAvaliadas")?.value?.trim() || "";
+    const desempenhoAlunosTexto = document.getElementById("diagnosticaDesempenhoAlunos")?.value?.trim() || "";
+    const capacidadesCriticasTexto = document.getElementById("diagnosticaCapacidadesCriticas")?.value?.trim() || "";
     const observacao = document.getElementById("diagnosticaObservacao")?.value?.trim() || "";
     const loading = document.getElementById("diagnosticaLoading");
     const salvarButton = form?.querySelector('button[type="submit"]');
@@ -3767,8 +4100,8 @@ async function salvarDiagnostica(event, codigoTurma) {
         return;
     }
 
-    if (!dataAplicacao || !arquivoInput?.files?.length) {
-        alert("Informe a data da aplicação e selecione um arquivo Excel.");
+    if (!dataAplicacao || !notaMedia || !capacidadesAvaliadasTexto || !desempenhoAlunosTexto || !capacidadesCriticasTexto) {
+        alert("Preencha data, nota média, capacidades avaliadas, desempenho dos alunos e capacidades críticas.");
         return;
     }
 
@@ -3778,29 +4111,55 @@ async function salvarDiagnostica(event, codigoTurma) {
 
     if (salvarButton) {
         salvarButton.disabled = true;
-        salvarButton.textContent = "Enviando...";
+        salvarButton.textContent = "Salvando...";
     }
 
-    const formData = new FormData();
-    formData.append("file", arquivoInput.files[0]);
-    formData.append("dataAvaliacao", dataAplicacao);
-    formData.append("observacao", observacao);
-
     try {
-        const resposta = await fetch(`${DIAGNOSTICAS_API_BASE_URL}/api/turmas/${encodeURIComponent(codigoTurma)}/diagnosticas`, {
-            method: "POST",
-            body: formData
-        });
+        const capacidadesAvaliadas = parseLinhasDiagnostica(capacidadesAvaliadasTexto).map((campos) => ({
+            capacidade: campos[0] || "-",
+            nota: campos[1] || "-"
+        }));
 
-        const payload = await resposta.json().catch(() => ({}));
-        if (!resposta.ok) {
-            throw new Error(payload.error || "Não foi possível salvar a avaliação diagnóstica.");
+        const desempenho = parseLinhasDiagnostica(desempenhoAlunosTexto).map((campos) => ({
+            aluno: campos[0] || "-",
+            capacidade: campos[1] || "-",
+            acerto: campos[2] || "-",
+            erro: campos[3] || "-"
+        }));
+
+        const capacidadesCriticas = parseLinhasDiagnostica(capacidadesCriticasTexto).map((campos) => ({
+            capacidade: campos[0] || "-",
+            subfuncao: campos[1] || "-",
+            percentual_desenvolvimento: campos[2] || "-"
+        }));
+
+        if (capacidadeListaVazia(capacidadesAvaliadas) || capacidadeListaVazia(desempenho) || capacidadeListaVazia(capacidadesCriticas)) {
+            alert("Preencha os campos em linhas válidas no formato indicado.");
+            return;
         }
+
+        const diagnosticas = carregarTurmasDoStorage(SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY) || [];
+        diagnosticas.push({
+            id: `manual-${Date.now()}`,
+            codigoTurma,
+            origem: "manual",
+            data_avaliacao: dataAplicacao,
+            nota_media: Number(notaMedia),
+            observacao,
+            criado_em: new Date().toISOString(),
+            detalhes: {
+                capacidadesAvaliadas,
+                capacidadesCriticas,
+                desempenho
+            }
+        });
+        salvarTurmasNoStorage(diagnosticas, SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY);
 
         limparRascunhoFormulario("formCadastroDiagnostica");
         form.reset();
         fecharModalDiagnostica();
         await renderizarAvaliacoesDiagnosticas(codigoTurma);
+        await renderizarAlunosDiagnosticaSaep(codigoTurma);
         alert("Avaliação diagnóstica cadastrada com sucesso.");
     } catch (error) {
         console.error(error);
@@ -3831,34 +4190,148 @@ async function carregarDetalhesDiagnostica(codigoTurma, diagnosticaId) {
     }
 }
 
+function parseLinhasDiagnostica(texto) {
+    return String(texto || "")
+        .split("\n")
+        .map((linha) => linha.trim())
+        .filter(Boolean)
+        .map((linha) => linha.split("|").map((campo) => campo.trim()));
+}
+
+function capacidadeListaVazia(lista) {
+    return !Array.isArray(lista) || lista.length === 0;
+}
+
+function obterMapaObservacoesAlunosSaep() {
+    const dados = carregarTurmasDoStorage(SAEP_ALUNOS_OBSERVACOES_STORAGE_KEY);
+    if (!dados || Array.isArray(dados) || typeof dados !== "object") {
+        return {};
+    }
+
+    return dados;
+}
+
+function obterObservacoesAlunosSaep(codigoTurma) {
+    const mapa = obterMapaObservacoesAlunosSaep();
+    return String(mapa[codigoTurma] || "");
+}
+
+function salvarObservacoesAlunosSaep(codigoTurma, texto) {
+    if (!codigoTurma) {
+        return;
+    }
+
+    const mapa = obterMapaObservacoesAlunosSaep();
+    mapa[codigoTurma] = String(texto || "").trim();
+    salvarTurmasNoStorage(mapa, SAEP_ALUNOS_OBSERVACOES_STORAGE_KEY);
+}
+
+function obterDiagnosticasManuaisSaep(codigoTurma) {
+    const dados = carregarTurmasDoStorage(SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY) || [];
+    return dados
+        .filter((item) => item?.codigoTurma === codigoTurma)
+        .map((item) => ({
+            avaliacao: {
+                id: item.id,
+                data_avaliacao: item.data_avaliacao,
+                observacao: item.observacao,
+                nota_media: item.nota_media,
+                origem: item.origem || "manual"
+            },
+            detalhes: {
+                capacidadesAvaliadas: Array.isArray(item?.detalhes?.capacidadesAvaliadas) ? item.detalhes.capacidadesAvaliadas : [],
+                capacidadesCriticas: Array.isArray(item?.detalhes?.capacidadesCriticas) ? item.detalhes.capacidadesCriticas : [],
+                desempenho: Array.isArray(item?.detalhes?.desempenho) ? item.detalhes.desempenho : []
+            }
+        }));
+}
+
+async function carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma) {
+    const consolidado = [...obterDiagnosticasManuaisSaep(codigoTurma)];
+
+    try {
+        const resposta = await fetch(`${DIAGNOSTICAS_API_BASE_URL}/api/turmas/${encodeURIComponent(codigoTurma)}/diagnosticas`);
+        if (!resposta.ok) {
+            throw new Error("Não foi possível carregar as avaliações diagnósticas da API.");
+        }
+
+        const avaliacoesApi = await resposta.json();
+        if (Array.isArray(avaliacoesApi) && avaliacoesApi.length > 0) {
+            const itensApi = await Promise.all(
+                avaliacoesApi.map(async (avaliacao) => {
+                    const detalhes = await carregarDetalhesDiagnostica(codigoTurma, avaliacao.id);
+                    return {
+                        avaliacao,
+                        detalhes: {
+                            capacidadesAvaliadas: [],
+                            capacidadesCriticas: Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : [],
+                            itens: Array.isArray(detalhes?.itens) ? detalhes.itens : [],
+                            desempenho: Array.isArray(detalhes?.desempenho) ? detalhes.desempenho : []
+                        }
+                    };
+                })
+            );
+
+            consolidado.push(...itensApi);
+        }
+    } catch (error) {
+        console.warn("Falha ao carregar diagnósticas da API, mantendo dados locais.", error);
+    }
+
+    return consolidado.sort((a, b) => new Date(b?.avaliacao?.data_avaliacao || 0).getTime() - new Date(a?.avaliacao?.data_avaliacao || 0).getTime());
+}
+
 function renderizarCardDiagnostica(avaliacao, detalhes) {
-    const capacidades = Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : [];
+    const capacidadesAvaliadas = Array.isArray(detalhes?.capacidadesAvaliadas) ? detalhes.capacidadesAvaliadas : [];
+    const capacidadesCriticas = Array.isArray(detalhes?.capacidadesCriticas)
+        ? detalhes.capacidadesCriticas
+        : (Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : []);
     const itens = Array.isArray(detalhes?.itens) ? detalhes.itens : [];
     const desempenho = Array.isArray(detalhes?.desempenho) ? detalhes.desempenho : [];
+    const notaMedia = avaliacao.nota_media ?? "-";
     const dataAplicacao = avaliacao.data_avaliacao ? new Date(avaliacao.data_avaliacao).toLocaleDateString("pt-BR") : "-";
     const observacao = avaliacao.observacao ? avaliacao.observacao : "Sem observação";
+    const origem = avaliacao?.origem === "manual" ? "Manual" : "Importado";
 
     return `
         <article class="saep-diagnostica-card">
             <div class="saep-diagnostica-card__head">
                 <div>
                     <strong>Avaliação diagnóstica · ${dataAplicacao}</strong>
-                    <div class="saep-diagnostica-card__meta">${observacao}</div>
+                    <div class="saep-diagnostica-card__meta">Nota média: ${notaMedia} · ${observacao}</div>
                 </div>
-                <span class="saep-badge">Importado</span>
+                <span class="saep-badge">${origem}</span>
             </div>
             <details class="saep-diagnostica-details">
                 <summary>Ver análise</summary>
                 <div class="saep-diagnostica-details__grid">
                     <div>
+                        <h4>Capacidades avaliadas</h4>
+                        ${capacidadesAvaliadas.length > 0 ? `
+                            <table class="saep-diagnostica-table">
+                                <thead>
+                                    <tr><th>Capacidade</th><th>Nota</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${capacidadesAvaliadas.map((item) => `
+                                        <tr>
+                                            <td>${item.capacidade || "-"}</td>
+                                            <td>${item.nota ?? "-"}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        ` : '<p class="saep-muted">Nenhuma capacidade avaliada informada.</p>'}
+                    </div>
+                    <div>
                         <h4>Capacidades críticas</h4>
-                        ${capacidades.length > 0 ? `
+                        ${capacidadesCriticas.length > 0 ? `
                             <table class="saep-diagnostica-table">
                                 <thead>
                                     <tr><th>Capacidade</th><th>Subfunção</th><th>%</th></tr>
                                 </thead>
                                 <tbody>
-                                    ${capacidades.map((item) => `
+                                    ${capacidadesCriticas.map((item) => `
                                         <tr>
                                             <td>${item.capacidade || "-"}</td>
                                             <td>${item.subfuncao || "-"}</td>
@@ -3925,26 +4398,196 @@ async function renderizarAvaliacoesDiagnosticas(codigoTurma) {
     container.innerHTML = '<div class="saep-empty-state">Carregando avaliações...</div>';
 
     try {
-        const resposta = await fetch(`${DIAGNOSTICAS_API_BASE_URL}/api/turmas/${encodeURIComponent(codigoTurma)}/diagnosticas`);
-        if (!resposta.ok) {
-            throw new Error("Não foi possível carregar as avaliações diagnósticas.");
-        }
-
-        const avaliacoes = await resposta.json();
-        if (!Array.isArray(avaliacoes) || avaliacoes.length === 0) {
+        const avaliacoes = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+        if (avaliacoes.length === 0) {
             container.innerHTML = '<div class="saep-empty-state">Nenhuma avaliação diagnóstica cadastrada para esta turma.</div>';
             return;
         }
 
-        const cards = await Promise.all(avaliacoes.map(async (avaliacao) => {
-            const detalhes = await carregarDetalhesDiagnostica(codigoTurma, avaliacao.id);
-            return renderizarCardDiagnostica(avaliacao, detalhes);
-        }));
-
-        container.innerHTML = cards.join("");
+        container.innerHTML = avaliacoes.map((item) => renderizarCardDiagnostica(item.avaliacao, item.detalhes)).join("");
     } catch (error) {
         console.error(error);
         container.innerHTML = '<div class="saep-empty-state">Não foi possível carregar as avaliações diagnósticas no momento.</div>';
+    }
+}
+
+async function carregarLinhasAlunosDiagnosticaSaep(codigoTurma) {
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    if (diagnosticas.length === 0) {
+        return [];
+    }
+
+    const linhas = [];
+
+    diagnosticas.forEach(({ avaliacao, detalhes }) => {
+        const dataAvaliacao = avaliacao?.data_avaliacao || "";
+        const notaMedia = avaliacao?.nota_media ?? "-";
+        const diagnosticaId = String(avaliacao?.id || "");
+        const origem = avaliacao?.origem === "manual" ? "Manual" : "Importado";
+        const desempenho = Array.isArray(detalhes?.desempenho) ? detalhes.desempenho : [];
+
+        desempenho.forEach((item, indiceDesempenho) => {
+            const nomeAluno = String(item?.aluno || "").trim();
+            if (!nomeAluno) {
+                return;
+            }
+
+            linhas.push({
+                aluno: nomeAluno,
+                capacidade: item?.capacidade || "-",
+                acerto: item?.acerto ?? "-",
+                erro: item?.erro ?? "-",
+                dataAvaliacao,
+                notaMedia,
+                diagnosticaId,
+                origem,
+                indiceDesempenho,
+                editavel: origem === "Manual"
+            });
+        });
+    });
+
+    return linhas;
+}
+
+function editarRegistroAlunoDiagnosticaSaep(diagnosticaId, indiceDesempenho) {
+    const codigoTurma = new URLSearchParams(window.location.search).get("turma") || "";
+    if (!codigoTurma) {
+        alert("Turma não identificada para edição.");
+        return;
+    }
+
+    const id = String(diagnosticaId || "").trim();
+    const indice = Number(indiceDesempenho);
+    if (!id || !Number.isInteger(indice) || indice < 0) {
+        alert("Registro inválido para edição.");
+        return;
+    }
+
+    const diagnosticas = carregarTurmasDoStorage(SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY) || [];
+    const indiceDiagnostica = diagnosticas.findIndex((item) => item?.codigoTurma === codigoTurma && String(item?.id || "") === id);
+    if (indiceDiagnostica < 0) {
+        alert("Somente registros manuais podem ser editados nesta tela.");
+        return;
+    }
+
+    const desempenho = diagnosticas[indiceDiagnostica]?.detalhes?.desempenho;
+    if (!Array.isArray(desempenho) || !desempenho[indice]) {
+        alert("Não foi possível localizar os dados deste aluno.");
+        return;
+    }
+
+    const registroAtual = desempenho[indice] || {};
+
+    const aluno = window.prompt("Aluno:", registroAtual.aluno || "");
+    if (aluno === null) {
+        return;
+    }
+
+    const capacidade = window.prompt("Capacidade:", registroAtual.capacidade || "");
+    if (capacidade === null) {
+        return;
+    }
+
+    const acerto = window.prompt("Acerto:", String(registroAtual.acerto ?? ""));
+    if (acerto === null) {
+        return;
+    }
+
+    const erro = window.prompt("Erro:", String(registroAtual.erro ?? ""));
+    if (erro === null) {
+        return;
+    }
+
+    desempenho[indice] = {
+        ...registroAtual,
+        aluno: aluno.trim() || "-",
+        capacidade: capacidade.trim() || "-",
+        acerto: acerto.trim() || "-",
+        erro: erro.trim() || "-"
+    };
+
+    salvarTurmasNoStorage(diagnosticas, SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY);
+    renderizarAvaliacoesDiagnosticas(codigoTurma);
+    renderizarAlunosDiagnosticaSaep(codigoTurma);
+}
+
+async function renderizarAlunosDiagnosticaSaep(codigoTurma) {
+    const container = document.getElementById("saepListaAlunosDiagnostica");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = '<div class="saep-empty-state">Carregando alunos...</div>';
+
+    try {
+        const linhas = await carregarLinhasAlunosDiagnosticaSaep(codigoTurma);
+        const observacoes = obterObservacoesAlunosSaep(codigoTurma);
+
+        container.innerHTML = `
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Capacidade</th>
+                            <th>Acerto</th>
+                            <th>Erro</th>
+                            <th>Data</th>
+                            <th>Nota média</th>
+                            <th>Origem</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${linhas.length === 0 ? `
+                            <tr>
+                                <td colspan="8">Cadastre uma avaliação diagnóstica para preencher esta aba com os alunos.</td>
+                            </tr>
+                        ` : linhas.map((linha) => `
+                            <tr>
+                                <td>${linha.aluno}</td>
+                                <td>${linha.capacidade}</td>
+                                <td>${linha.acerto}</td>
+                                <td>${linha.erro}</td>
+                                <td>${linha.dataAvaliacao ? new Date(linha.dataAvaliacao).toLocaleDateString("pt-BR") : "-"}</td>
+                                <td>${linha.notaMedia}</td>
+                                <td>${linha.origem}</td>
+                                <td>
+                                    ${linha.editavel
+            ? `<button type="button" class="btn-edit" title="Editar registro do aluno" onclick="editarRegistroAlunoDiagnosticaSaep('${linha.diagnosticaId}', ${linha.indiceDesempenho})">✏️</button>`
+            : "-"}
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+            <div class="saep-card" style="margin-top: 1rem;">
+                <div class="saep-card__header">
+                    <h3>Observações</h3>
+                </div>
+                <label class="saep-full-width" for="saepObservacoesAlunos">
+                    <textarea id="saepObservacoesAlunos" rows="4" placeholder="Adicione observações gerais sobre os alunos desta turma...">${observacoes}</textarea>
+                </label>
+                <div class="form-actions" style="margin-top: 0.75rem;">
+                    <button type="button" class="btn-primary" id="btnSalvarObservacoesAlunosSaep">Salvar observações</button>
+                </div>
+            </div>
+        `;
+
+        const botaoSalvarObservacoes = document.getElementById("btnSalvarObservacoesAlunosSaep");
+        const campoObservacoes = document.getElementById("saepObservacoesAlunos");
+
+        if (botaoSalvarObservacoes && campoObservacoes) {
+            botaoSalvarObservacoes.onclick = () => {
+                salvarObservacoesAlunosSaep(codigoTurma, campoObservacoes.value);
+                alert("Observações salvas com sucesso.");
+            };
+        }
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = '<div class="saep-empty-state">Não foi possível carregar os alunos no momento.</div>';
     }
 }
 
@@ -4364,14 +5007,14 @@ function renderizarRegistrosSaepGestao(container, badge) {
 
     container.innerHTML = `
         <div class="saep-registros-list-wrapper">
-            <h4 class="saep-registros-list-title">Tópicos cadastrados</h4>
+            <h4 class="saep-registros-list-title">Lembretes cadastrados</h4>
             <ul class="saep-registros-topicos">
                 ${registros.map((registro) => `
                     <li class="saep-registro-item">
                         <div class="saep-registro-item__head">
                             <strong>${registro.titulo}</strong>
+                            <button type="button" class="btn-delete" title="Excluir lembrete" onclick="excluirRegistroSaepGestao('${registro.id}')">🗑️</button>
                         </div>
-                        <p class="saep-registro-item__turma">Turma ${registro.codigoTurma || "-"}</p>
                         <p class="saep-registro-item__descricao">${registro.descricao}</p>
                         <span class="saep-registro-item__data">${registro.criadoEm ? new Date(registro.criadoEm).toLocaleString("pt-BR") : "-"}</span>
                     </li>
@@ -4381,35 +5024,41 @@ function renderizarRegistrosSaepGestao(container, badge) {
     `;
 }
 
-function popularSelectTurmasRegistrosSaep(select) {
-    if (!select) {
+function excluirRegistroSaepGestao(idRegistro) {
+    const id = String(idRegistro || "").trim();
+    if (!id) {
         return;
     }
 
-    const turmas = carregarTurmasDoStorage(STORAGE_KEY);
-    select.innerHTML = turmas.length === 0
-        ? '<option value="">Nenhuma turma cadastrada</option>'
-        : turmas.map((turma) => `<option value="${turma.codigoTurma}">${turma.codigoTurma} - ${turma.curso}</option>`).join("");
+    const confirmou = window.confirm("Deseja realmente excluir este lembrete?");
+    if (!confirmou) {
+        return;
+    }
+
+    const registros = carregarRegistrosSaepGestao();
+    const atualizados = registros.filter((registro) => String(registro?.id || "") !== id);
+    salvarRegistrosSaepGestao(atualizados);
+
+    const container = document.getElementById("saepRegistrosGestao");
+    const badge = document.getElementById("saepTotalRegistrosBadge");
+    renderizarRegistrosSaepGestao(container, badge);
 }
 
 function configurarRegistrosSaepPrincipal(botao, container, badge) {
     const modal = document.getElementById("modalRegistroSaep");
     const form = document.getElementById("formRegistroSaep");
-    const selectTurma = document.getElementById("registroTurmaSaep");
     const campoTitulo = document.getElementById("registroTituloSaep");
     const campoDescricao = document.getElementById("registroDescricaoSaep");
     const botaoCancelar = document.getElementById("btnCancelarRegistroSaep");
 
-    if (!botao || !container || !badge || !modal || !form || !selectTurma || !campoTitulo || !campoDescricao || !botaoCancelar) {
+    if (!botao || !container || !badge || !modal || !form || !campoTitulo || !campoDescricao || !botaoCancelar) {
         renderizarRegistrosSaepGestao(container, badge);
         return;
     }
 
-    popularSelectTurmasRegistrosSaep(selectTurma);
     renderizarRegistrosSaepGestao(container, badge);
 
     botao.onclick = () => {
-        popularSelectTurmasRegistrosSaep(selectTurma);
         form.reset();
         modal.classList.add("active");
         modal.setAttribute("aria-hidden", "false");
@@ -4423,11 +5072,10 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
     form.onsubmit = (event) => {
         event.preventDefault();
 
-        const codigoTurma = selectTurma.value.trim();
         const titulo = campoTitulo.value.trim();
         const descricao = campoDescricao.value.trim();
 
-        if (!codigoTurma || !titulo || !descricao) {
+        if (!titulo || !descricao) {
             alert("Preencha todos os campos do registro SAEP.");
             return;
         }
@@ -4435,7 +5083,6 @@ function configurarRegistrosSaepPrincipal(botao, container, badge) {
         const registros = carregarRegistrosSaepGestao();
         registros.push({
             id: `${Date.now()}`,
-            codigoTurma,
             titulo,
             descricao,
             criadoEm: new Date().toISOString()
@@ -4487,9 +5134,9 @@ function mostrarAbaSaep(aba, turmaSelecionada = null) {
     if (aba === "plano") {
         texto = `<h3>Plano de ação</h3><p>Registrar ações pedagógicas para a turma ${turma.codigoTurma}.</p>`;
     } else if (aba === "objetivos") {
-        texto = `<h3>Simulados objetivos</h3><p>Organizar os simulados objetivos da turma ${turma.codigoTurma}.</p>`;
+        texto = `<h3>Avaliações objetivas</h3><p>Organizar as avaliações objetivas da turma ${turma.codigoTurma}.</p>`;
     } else if (aba === "praticos") {
-        texto = `<h3>Simulados práticos</h3><p>Organizar os simulados práticos da turma ${turma.codigoTurma}.</p>`;
+        texto = `<h3>Avaliação prática</h3><p>Organizar as avaliações práticas da turma ${turma.codigoTurma}.</p>`;
     }
 
     conteudo.innerHTML = `
@@ -4523,7 +5170,7 @@ function excluirAlunoDaTurma(codigoTurma, nomeAluno) {
 
 function renderizarDetalhesTurmaNaPagina() {
     const codigoTurmaParam = new URLSearchParams(window.location.search).get("turma");
-    const codigoTurmaSalvo = sessionStorage.getItem(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE);
+    const codigoTurmaSalvo = obterValorPersistente(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE);
     const codigoTurma = (codigoTurmaParam || codigoTurmaSalvo || "").trim();
     const titulo = document.getElementById("tituloTurmaOcorrencia");
     const dadosTurma = document.getElementById("dadosTurmaOcorrencia");
@@ -4542,7 +5189,7 @@ function renderizarDetalhesTurmaNaPagina() {
         return;
     }
 
-    sessionStorage.setItem(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE, codigoTurma);
+    salvarValorPersistente(ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE, codigoTurma);
 
     const turma = obterTurmaPorCodigo(codigoTurma);
     if (!turma) {
@@ -4900,21 +5547,7 @@ function salvarOcorrencia() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
-    [
-        "formCadastroTurma",
-        "formCadastroSeeduc",
-        "formCadastroSaep",
-        "formCadastroDiagnostica",
-        "formCadastroAcaoSaep",
-        "formCadastroAvaliacaoSaep",
-        "formInformativoPlataforma",
-        "formDatasSaepPlataforma",
-        "formEtapasAcesso",
-        "formObservacaoEtapa",
-        "formHistoricoCadastroSaep",
-        "formRegistroSaep",
-        "formOcorrencia"
-    ].forEach(configurarPersistenciaRascunhoFormulario);
+    configurarReforcoPersistenciaGlobal();
 
     await inicializarSincronizacaoRemota();
     renderizarPaginaAtual();

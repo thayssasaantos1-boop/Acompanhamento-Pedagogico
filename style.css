@@ -411,6 +411,10 @@ img {
     margin-bottom: 0.45rem;
 }
 
+.saep-registro-item__head .btn-delete {
+    margin-right: 0;
+}
+
 .saep-registro-item__turma {
     color: #003da5;
     font-size: 0.9rem;
@@ -1139,6 +1143,60 @@ img {
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.85rem;
+}
+
+.saep-historico-segmentos-wrap {
+    margin-bottom: 1rem;
+}
+
+.saep-historico-segmentos-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.saep-historico-segmentos-head h5 {
+    margin: 0;
+    color: #0f172a;
+}
+
+.saep-historico-segmentos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.9rem;
+}
+
+.saep-historico-segment-card {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    border: 1px solid #d9e7fb;
+    border-radius: 14px;
+    padding: 0.9rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.saep-historico-segment-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.saep-historico-segment-card__head strong {
+    color: #003da5;
+}
+
+.saep-historico-segment-card__head span {
+    color: #64748b;
+    font-size: 0.86rem;
+}
+
+.saep-historico-segment-card__chart {
+    width: 100%;
+    height: 250px;
 }
 
 .saep-import-card {

@@ -68,8 +68,7 @@
                     <div id="painelSaepDetalhes" class="seeduc-card" style="display:none; margin-top: 20px;">
                         <div class="seeduc-submenu">
                             <button type="button" class="seeduc-submenu__item active" data-aba="plano" onclick="mostrarAbaSaep('plano')">Plano de ação</button>
-                            <button type="button" class="seeduc-submenu__item" data-aba="objetivos" onclick="mostrarAbaSaep('objetivos')">Simulados objetivos</button>
-                            <button type="button" class="seeduc-submenu__item" data-aba="praticos" onclick="mostrarAbaSaep('praticos')">Simulados práticos</button>
+                            <button type="button" class="seeduc-submenu__item" data-aba="praticos" onclick="mostrarAbaSaep('praticos')">Avaliação prática</button>
                         </div>
                         <div id="conteudoSaep" class="seeduc-relatorio"></div>
                     </div>
@@ -108,20 +107,16 @@
 
     <div id="modalRegistroSaep" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3>Cadastrar registros SAEP</h3>
+            <h3>Cadastrar lembrete SAEP</h3>
             <form id="formRegistroSaep">
                 <div class="form-grid">
-                    <label>
-                        Turma
-                        <select id="registroTurmaSaep" required></select>
-                    </label>
                     <label class="saep-full-width">
-                        Ocorrência
-                        <input id="registroTituloSaep" type="text" required placeholder="Descreva qual ocorrência será registrada">
+                        Lembrete
+                        <input id="registroTituloSaep" type="text" required placeholder="Descreva o lembrete que será registrado">
                     </label>
                     <label class="saep-full-width">
                         Descrição complementar
-                        <textarea id="registroDescricaoSaep" rows="5" required placeholder="Detalhe a ocorrência e os pontos importantes..."></textarea>
+                        <textarea id="registroDescricaoSaep" rows="5" required placeholder="Detalhe o lembrete e os pontos importantes..."></textarea>
                     </label>
                 </div>
                 <div class="form-actions">
