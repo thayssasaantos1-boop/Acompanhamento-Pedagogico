@@ -36,37 +36,65 @@
                             <p class="panel-subtitle">Área para gestão de registros SAEP.</p>
                         </div>
                     </div>
-                    <div class="seeduc-toolbar">
-                        <span class="seeduc-badge">Turmas em acompanhamento</span>
-                        <button type="button" id="btnCadastrarRegistrosSaep" class="o-container__turmas__cadastrar">Cadastrar registros SAEP</button>
+                    <div id="saepMainSubmenu" class="seeduc-submenu">
+                        <button type="button" class="seeduc-submenu__item active" data-saep-main-aba="turmas">Turmas</button>
+                        <button type="button" class="seeduc-submenu__item" data-saep-main-aba="plano-escola">Plano de ação escola</button>
                     </div>
 
-                    <div class="saep-registros-card">
-                        <div class="saep-card__header">
-                            <h3>Área para gestão de registro</h3>
-                            <span class="saep-badge" id="saepTotalRegistrosBadge">0 registros</span>
+                    <div id="saepMainAbaTurmas">
+                        <div class="seeduc-toolbar">
+                            <span class="seeduc-badge">Turmas em acompanhamento</span>
+                            <button type="button" id="btnCadastrarRegistrosSaep" class="o-container__turmas__cadastrar">Cadastrar registros SAEP</button>
                         </div>
-                        <div id="saepRegistrosGestao" class="saep-registros-lista"></div>
+
+                        <div class="saep-registros-card">
+                            <div class="saep-card__header">
+                                <h3>Área para gestão de registro</h3>
+                                <span class="saep-badge" id="saepTotalRegistrosBadge">0 registros</span>
+                            </div>
+                            <div id="saepRegistrosGestao" class="saep-registros-lista"></div>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaTurmasSaep">
+                                <thead>
+                                    <tr>
+                                        <th>Código da Turma</th>
+                                        <th>Curso</th>
+                                        <th>Data Fim</th>
+                                        <th>SAEP Objetivo</th>
+                                        <th>SAEP Prático</th>
+                                        <th>Instrutor</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                        <div id="painelSaepDetalhes" class="seeduc-card" style="display:none; margin-top: 20px;">
+                            <div id="conteudoSaep" class="seeduc-relatorio"></div>
+                        </div>
                     </div>
 
-                    <div class="table-scroll">
-                        <table class="o-container__turmas__cadastrar__tabela seeduc-table" id="tabelaTurmasSaep">
-                            <thead>
-                                <tr>
-                                    <th>Código da Turma</th>
-                                    <th>Curso</th>
-                                    <th>Data Fim</th>
-                                    <th>SAEP Objetivo</th>
-                                    <th>SAEP Prático</th>
-                                    <th>Instrutor</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
+                    <div id="saepMainAbaPlanoEscola" style="display:none;">
+                        <div class="seeduc-toolbar">
+                            <span class="seeduc-badge">Plano de ação da escola</span>
+                            <button type="button" id="btnCadastrarPlanoAcaoEscola" class="o-container__turmas__cadastrar">Cadastrar plano de ação da escola</button>
+                        </div>
 
-                    <div id="painelSaepDetalhes" class="seeduc-card" style="display:none; margin-top: 20px;">
-                        <div id="conteudoSaep" class="seeduc-relatorio"></div>
+                        <div class="table-scroll">
+                            <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Título</th>
+                                        <th>Descrição</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaPlanoAcaoEscolaSaep"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -118,6 +146,33 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarRegistroSaep">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalPlanoAcaoEscolaSaep" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <h3 id="tituloModalPlanoAcaoEscolaSaep">Cadastrar plano de ação da escola</h3>
+            <form id="formPlanoAcaoEscolaSaep">
+                <input type="hidden" id="planoAcaoEscolaSaepId" value="">
+                <div class="form-grid">
+                    <label>
+                        Data
+                        <input id="planoAcaoEscolaSaepData" type="date" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Título
+                        <input id="planoAcaoEscolaSaepTitulo" type="text" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Descrição
+                        <textarea id="planoAcaoEscolaSaepDescricao" rows="5" required></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarPlanoAcaoEscolaSaep">Cancelar</button>
                 </div>
             </form>
         </div>
