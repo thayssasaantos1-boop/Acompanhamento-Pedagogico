@@ -1,6 +1,7 @@
 const STORAGE_KEY = "turmasCadastradas";
 const STORAGE_KEY_FINALIZADAS = "turmasFinalizadas";
 const STORAGE_KEY_OCORRENCIAS = "ocorrenciasPedagogicas";
+const STORAGE_KEY_OCORRENCIAS_TURMA = "ocorrenciasTurmaPedagogicas";
 const STORAGE_KEY_ALUNOS = "alunosPorTurma";
 const STORAGE_SYNC_REGISTRY_KEY = "__acompanhamentoSyncRegistry__";
 const STORAGE_SYNC_STATIC_KEYS = [
@@ -20,7 +21,8 @@ const STORAGE_SYNC_STATIC_KEYS = [
 ];
 const STORAGE_SYNC_PREFIXES = [
     `${STORAGE_KEY_ALUNOS}_`,
-    `${STORAGE_KEY_OCORRENCIAS}_`
+    `${STORAGE_KEY_OCORRENCIAS}_`,
+    `${STORAGE_KEY_OCORRENCIAS_TURMA}_`
 ];
 const APP_SYNC_CONFIG = window.APP_SYNC_CONFIG || {};
 const APP_SYNC_STATE = {
@@ -44,9 +46,12 @@ const DIAGNOSTICAS_API_BASE_URL = "http://localhost:3000";
 let persistenciaGlobalFormulariosAtiva = false;
 let observadorFormulariosPersistencia = null;
 let planosResumoSaepPorTurma = {};
+const SAEP_RESUMO_DASHBOARD_CACHE_TTL_MS = 45000;
+const SAEP_RESUMO_DASHBOARD_CACHE = {};
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
 const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
 const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
+const OCORRENCIAS_TURMA_ABA_ATIVA_STORAGE = "ocorrenciasTurmaAbaAtiva";
 const SAEP_ABAS_OBRIGATORIAS = [
     "D. por Competência - Cruzamento",
     "D. por Competência - Itens",
@@ -127,6 +132,17 @@ function limparRascunhoFormulario(formId) {
     }
 
     localStorage.removeItem(obterChaveRascunhoFormulario(formId));
+}
+
+function invalidarCacheResumoDashboardSaep(codigoTurma = "") {
+    if (codigoTurma) {
+        delete SAEP_RESUMO_DASHBOARD_CACHE[codigoTurma];
+        return;
+    }
+
+    Object.keys(SAEP_RESUMO_DASHBOARD_CACHE).forEach((chave) => {
+        delete SAEP_RESUMO_DASHBOARD_CACHE[chave];
+    });
 }
 
 function configurarPersistenciaRascunhoFormulario(formId) {
@@ -316,6 +332,14 @@ function aplicarPayloadSyncRemoto(payload) {
         return false;
     }
 
+    const serialRemoto = JSON.stringify(payload.keys);
+    const serialLocal = JSON.stringify(obterPayloadSyncLocal().keys);
+
+    if (serialRemoto === serialLocal) {
+        APP_SYNC_STATE.lastSerializedPayload = serialLocal;
+        return false;
+    }
+
     const chavesRemotas = Object.keys(payload.keys);
 
     chavesRemotas.forEach((chave) => {
@@ -380,6 +404,55 @@ async function enviarDadosRemotos() {
     return true;
 }
 
+function obterAbaSaepDetalhesAtivaNaInterface() {
+    const botaoAtivo = document.querySelector(".saep-sidebar__item.active");
+    return String(botaoAtivo?.dataset?.aba || "").trim().toLowerCase();
+}
+
+function modalDiagnosticaAberta() {
+    const modal = document.getElementById("modalCadastroDiagnostica");
+    if (!modal) {
+        return false;
+    }
+
+    return modal.classList.contains("active") || modal.getAttribute("aria-hidden") === "false";
+}
+
+function deveAdiarAtualizacaoSaepDiagnosticas() {
+    if (!window.location.pathname.toLowerCase().includes("saepdetalhes")) {
+        return false;
+    }
+
+    const abaAtiva = obterAbaSaepDetalhesAtivaNaInterface();
+    if (abaAtiva !== "diagnosticas") {
+        return false;
+    }
+
+    if (modalDiagnosticaAberta()) {
+        return true;
+    }
+
+    const foco = document.activeElement;
+    const secaoDiagnosticas = document.getElementById("saepSectionDiagnosticas");
+    if (foco && secaoDiagnosticas && secaoDiagnosticas.contains(foco)) {
+        return true;
+    }
+
+    return true;
+}
+
+function atualizarSaepDetalhesAposSyncRemoto() {
+    if (!window.location.pathname.toLowerCase().includes("saepdetalhes")) {
+        return;
+    }
+
+    if (deveAdiarAtualizacaoSaepDiagnosticas()) {
+        return;
+    }
+
+    renderizarDetalhesSaep();
+}
+
 async function sincronizarComRemoto(modo = "bidirecional") {
     if (!APP_SYNC_STATE.enabled || APP_SYNC_STATE.isSyncing) {
         return;
@@ -392,10 +465,7 @@ async function sincronizarComRemoto(modo = "bidirecional") {
             const aplicouRemoto = await baixarDadosRemotos();
             if (aplicouRemoto) {
                 renderizarPaginaAtual();
-
-                if (window.location.pathname.toLowerCase().includes("saepdetalhes")) {
-                    renderizarDetalhesSaep();
-                }
+                atualizarSaepDetalhesAposSyncRemoto();
             }
         }
 
@@ -954,6 +1024,10 @@ function obterChaveOcorrenciasTurma(codigoTurma) {
     return `${STORAGE_KEY_OCORRENCIAS}_${codigoTurma}`;
 }
 
+function obterChaveOcorrenciasGeraisTurma(codigoTurma) {
+    return `${STORAGE_KEY_OCORRENCIAS_TURMA}_${codigoTurma}`;
+}
+
 function carregarAlunosDaTurma(codigoTurma) {
     const alunos = carregarTurmasDoStorage(obterChaveAlunosTurma(codigoTurma));
     return Array.isArray(alunos) ? alunos.filter(Boolean) : [];
@@ -992,6 +1066,44 @@ function carregarOcorrenciasDaTurma(codigoTurma) {
 
 function salvarOcorrenciasDaTurma(codigoTurma, ocorrencias) {
     salvarTurmasNoStorage(ocorrencias, obterChaveOcorrenciasTurma(codigoTurma));
+}
+
+function carregarOcorrenciasGeraisDaTurma(codigoTurma) {
+    const ocorrencias = carregarTurmasDoStorage(obterChaveOcorrenciasGeraisTurma(codigoTurma));
+    if (!Array.isArray(ocorrencias)) {
+        return [];
+    }
+
+    return ocorrencias.map((item, index) => ({
+        id: item?.id || `${codigoTurma}-turma-${index + 1}`,
+        data: item?.data || "",
+        tipo: item?.tipo || "Pedagógica",
+        descricao: item?.descricao || ""
+    }));
+}
+
+function salvarOcorrenciasGeraisDaTurma(codigoTurma, ocorrencias) {
+    salvarTurmasNoStorage(ocorrencias, obterChaveOcorrenciasGeraisTurma(codigoTurma));
+}
+
+function obterMapaAbasOcorrenciasTurma() {
+    const dados = carregarTurmasDoStorage(OCORRENCIAS_TURMA_ABA_ATIVA_STORAGE);
+    if (!dados || Array.isArray(dados) || typeof dados !== "object") {
+        return {};
+    }
+
+    return dados;
+}
+
+function salvarAbaOcorrenciasTurma(codigoTurma, aba) {
+    const mapa = obterMapaAbasOcorrenciasTurma();
+    mapa[codigoTurma] = aba;
+    salvarTurmasNoStorage(mapa, OCORRENCIAS_TURMA_ABA_ATIVA_STORAGE);
+}
+
+function obterAbaOcorrenciasTurma(codigoTurma) {
+    const mapa = obterMapaAbasOcorrenciasTurma();
+    return mapa[codigoTurma] || "alunos";
 }
 
 function abrirModalCadastroSeeduc() {
@@ -2135,7 +2247,10 @@ function exibirAbaSaepDetalhes(aba) {
     const secoes = document.querySelectorAll(".saep-section");
     const botoesSidebar = document.querySelectorAll(".saep-sidebar__item");
     const codigoTurma = new URLSearchParams(window.location.search).get("turma") || "";
-    const abaNormalizada = aba === "historico" || aba === "plataformas" ? "saep" : aba;
+    const abasPrincipais = new Set(["resumo", "diagnosticas", "plano", "praticos", "saep"]);
+    const abaNormalizada = aba === "historico" || aba === "plataformas"
+        ? "saep"
+        : (abasPrincipais.has(aba) ? aba : "resumo");
 
     secoes.forEach((secao) => {
         secao.style.display = "none";
@@ -2198,7 +2313,18 @@ function salvarAbaAtivaSaep(codigoTurma, aba) {
 
 function obterAbaAtivaSaep(codigoTurma) {
     const mapa = carregarMapaAbasSaep();
-    return mapa[codigoTurma] || "resumo";
+    const abaSalva = mapa[codigoTurma] || "resumo";
+    const abasValidas = new Set(["resumo", "diagnosticas", "plano", "praticos", "saep"]);
+
+    if (abaSalva === "historico" || abaSalva === "plataformas") {
+        return "saep";
+    }
+
+    if (abaSalva === "objetivos" || abaSalva === "alunos") {
+        return "resumo";
+    }
+
+    return abasValidas.has(abaSalva) ? abaSalva : "resumo";
 }
 
 function carregarMapaSubAbasHistoricoSaep() {
@@ -3262,7 +3388,7 @@ function renderizarGraficoComparativoSegmentoSaep(containerId, serie) {
     }
 
     if (!window.Recharts || !window.React || !window.ReactDOM) {
-        container.innerHTML = '<div class="saep-empty-state">Gráfico indisponível no momento.</div>';
+        renderizarGraficoComparativoSegmentoSaepFallback(container, serie);
         return;
     }
 
@@ -3287,6 +3413,57 @@ function renderizarGraficoComparativoSegmentoSaep(containerId, serie) {
         ),
         container
     );
+}
+
+function formatarValorHistoricoSaep(valor) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero.toFixed(1) : "-";
+}
+
+function renderizarBarraHistoricoSaep(valor, classe) {
+    const numero = Number(valor);
+    const percentual = Number.isFinite(numero) ? Math.max(0, Math.min((numero / 10) * 100, 100)) : 0;
+
+    return `
+        <div class="saep-historico-fallback-bar ${classe}">
+            <div class="saep-historico-fallback-bar__fill" style="width:${percentual}%;"></div>
+            <span class="saep-historico-fallback-bar__label">${formatarValorHistoricoSaep(valor)}</span>
+        </div>
+    `;
+}
+
+function renderizarGraficoComparativoSegmentoSaepFallback(container, serie) {
+    if (!container) {
+        return;
+    }
+
+    const linhas = Array.isArray(serie) ? serie : [];
+    if (linhas.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Sem dados suficientes para o gráfico.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="saep-historico-fallback-chart">
+            <div class="saep-historico-fallback-legend">
+                <span class="saep-historico-fallback-legend__item"><i class="saep-historico-fallback-legend__dot saep-historico-fallback-legend__dot--escola"></i>Escola</span>
+                <span class="saep-historico-fallback-legend__item"><i class="saep-historico-fallback-legend__dot saep-historico-fallback-legend__dot--objetiva"></i>Objetiva</span>
+                <span class="saep-historico-fallback-legend__item"><i class="saep-historico-fallback-legend__dot saep-historico-fallback-legend__dot--pratica"></i>Prática</span>
+            </div>
+            <div class="saep-historico-fallback-rows">
+                ${linhas.map((item) => `
+                    <div class="saep-historico-fallback-row">
+                        <div class="saep-historico-fallback-row__year">${item.ano}</div>
+                        <div class="saep-historico-fallback-row__bars">
+                            ${renderizarBarraHistoricoSaep(item.notaEscola, "saep-historico-fallback-bar--escola")}
+                            ${renderizarBarraHistoricoSaep(item.notaObjetiva, "saep-historico-fallback-bar--objetiva")}
+                            ${renderizarBarraHistoricoSaep(item.notaPratica, "saep-historico-fallback-bar--pratica")}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
 }
 
 function renderizarGraficosHistoricoPorSegmentoSaep(registros) {
@@ -3544,16 +3721,24 @@ function calcularPercentualExecucaoGeral(codigoTurma, acoes = []) {
     return Math.round(((concluidasAcoes + concluidasEtapas) / totalItens) * 100);
 }
 
-function renderizarResumoNotasSaep(avaliacoesObjetivo = [], avaliacoesPratico = []) {
+async function renderizarResumoNotasSaep(codigoTurma, avaliacoesPratico = []) {
     const container = document.getElementById("saepGraficoNotas");
     if (!container) {
         return;
     }
 
+    const diagnosticas = codigoTurma
+        ? await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma)
+        : [];
+    const avaliacoesDiagnosticas = diagnosticas.map(({ avaliacao }) => ({
+        data: avaliacao?.data_avaliacao || "",
+        notaMedia: avaliacao?.nota_media ?? 0
+    })).filter((item) => item.data);
+
     const blocos = [
         {
-            titulo: "Avaliações objetivas",
-            itens: avaliacoesObjetivo
+            titulo: "Avaliações diagnósticas",
+            itens: avaliacoesDiagnosticas
         },
         {
             titulo: "Avaliações práticas",
@@ -3563,7 +3748,7 @@ function renderizarResumoNotasSaep(avaliacoesObjetivo = [], avaliacoesPratico = 
 
     const possuiNotas = blocos.some((bloco) => bloco.itens.length > 0);
     if (!possuiNotas) {
-        container.innerHTML = '<div class="saep-empty-state">Cadastre notas das avaliações objetivas e práticas para exibir o resumo aqui.</div>';
+        container.innerHTML = '<div class="saep-empty-state">Cadastre notas das avaliações diagnósticas e práticas para exibir o resumo aqui.</div>';
         return;
     }
 
@@ -3603,54 +3788,38 @@ function renderizarResumoNotasSaep(avaliacoesObjetivo = [], avaliacoesPratico = 
     `;
 }
 
-function renderizarResumoCapacidadesSaep(avaliacoesObjetivo = [], avaliacoesPratico = [], principais = []) {
+async function renderizarResumoCapacidadesSaep(codigoTurma) {
     const container = document.getElementById("saepGraficoCapacidades");
     if (!container) {
         return;
     }
 
-    const todasCapacidades = [...avaliacoesObjetivo, ...avaliacoesPratico]
-        .flatMap((avaliacao) => Array.isArray(avaliacao.capacidades) ? avaliacao.capacidades : []);
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    const capacidadesCriticas = diagnosticas.flatMap(({ detalhes }) => Array.isArray(detalhes?.capacidadesCriticas)
+        ? detalhes.capacidadesCriticas
+        : (Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : []));
 
-    if (todasCapacidades.length === 0) {
-        container.innerHTML = '<div class="saep-empty-state">Cadastre capacidades avaliadas para destacar os pontos críticos da turma.</div>';
+    if (capacidadesCriticas.length === 0) {
+        container.innerHTML = '<div class="saep-empty-state">Cadastre avaliações diagnósticas para destacar os pontos críticos por capacidade.</div>';
         return;
     }
 
-    const capacidadesEmAtencao = todasCapacidades
-        .filter((item) => ["crítica", "critica", "atenção", "atencao"].includes(String(item.situacao || "").toLowerCase()))
-        .slice(0, 8);
+    const capacidadesEmAtencao = capacidadesCriticas.slice(0, 8);
 
     container.innerHTML = `
         <div class="saep-resumo-stack">
-            <div class="saep-resumo-item">
-                <div class="saep-resumo-item__head">
-                    <strong>Capacidades mais críticas</strong>
-                    <span class="saep-badge saep-badge--warning">${principais.length}</span>
-                </div>
-                ${principais.length > 0 ? `
-                    <ul class="saep-resumo-list">
-                        ${principais.map(([nome, total]) => `
-                            <li>
-                                <span>${nome}</span>
-                                <strong>${total} ocorrência${total > 1 ? "s" : ""}</strong>
-                            </li>
-                        `).join("")}
-                    </ul>
-                ` : '<p class="saep-muted">Nenhuma capacidade crítica identificada até o momento.</p>'}
-            </div>
             <div class="saep-resumo-item">
                 <strong>Capacidades em atenção nas avaliações</strong>
                 ${capacidadesEmAtencao.length > 0 ? `
                     <ul class="saep-resumo-list">
                         ${capacidadesEmAtencao.map((item) => `
                             <li>
-                                <span>${item.capacidade}</span>
-                                <strong>${item.situacao || "atenção"}</strong>
+                                <span>${item.capacidade || "-"}</span>
+                                <strong>${item.conhecimento || item.subfuncao || item.percentual_desenvolvimento || "atenção"}</strong>
                             </li>
                         `).join("")}
                     </ul>
-                ` : '<p class="saep-muted">As avaliações cadastradas ainda não sinalizaram capacidades críticas ou em atenção.</p>'}
+                ` : '<p class="saep-muted">As avaliações diagnósticas ainda não sinalizaram capacidades críticas ou conhecimentos em atenção.</p>'}
             </div>
         </div>
     `;
@@ -3709,67 +3878,125 @@ function renderizarResumoPlanoSaep(codigoTurma, acoes = []) {
 }
 
 async function buscarEvolucaoDiagnosticasApi(codigoTurma) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const avaliacoes = [
-                ...(carregarTurmasDoStorage("saepAvaliacoesObjetivo") || []),
-                ...(carregarTurmasDoStorage("saepAvaliacoesPratico") || [])
-            ].filter((item) => item.codigoTurma === codigoTurma && item.data);
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
 
-            const dados = avaliacoes
-                .map((item) => ({
-                    data: item.data,
-                    notaMedia: Number(item.notaMedia || 0)
-                }))
-                .sort((a, b) => new Date(a.data) - new Date(b.data));
-
-            resolve(dados);
-        }, 120);
-    });
+    return diagnosticas
+        .map(({ avaliacao }) => ({
+            data: avaliacao?.data_avaliacao || "",
+            notaMedia: Number(avaliacao?.nota_media || 0)
+        }))
+        .filter((item) => item.data)
+        .sort((a, b) => new Date(a.data) - new Date(b.data));
 }
 
 async function buscarAlunosBaixoDesempenhoApi(codigoTurma) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const avaliacaoBase = [
-                ...(carregarTurmasDoStorage("saepAvaliacoesObjetivo") || []),
-                ...(carregarTurmasDoStorage("saepAvaliacoesPratico") || [])
-            ].filter((item) => item.codigoTurma === codigoTurma);
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    const alunos = new Set();
 
-            const alunos = new Set();
-            avaliacaoBase.forEach((avaliacao) => {
-                (avaliacao.alunosBaixoDesempenho || []).forEach((aluno) => {
-                    if (aluno?.nome && Number(aluno.nota || 0) < 6.5) {
-                        alunos.add(aluno.nome);
-                    }
-                });
-            });
+    diagnosticas.forEach(({ detalhes }) => {
+        const desempenho = Array.isArray(detalhes?.desempenho) ? detalhes.desempenho : [];
 
-            resolve(Array.from(alunos));
-        }, 120);
+        desempenho.forEach((item) => {
+            const nome = String(item?.aluno || "").trim();
+            const acerto = Number(item?.acerto || 0);
+            const erro = Number(item?.erro || 0);
+            const total = acerto + erro;
+
+            if (!nome || total <= 0) {
+                return;
+            }
+
+            if ((acerto / total) * 100 < 65) {
+                alunos.add(nome);
+            }
+        });
     });
+
+    return Array.from(alunos);
 }
 
-async function buscarCapacidadesCriticasApi(codigoTurma, tipo) {
-    const endpoint = tipo === "objetivas" ? "objetivas" : "praticas";
+async function buscarCapacidadesCriticasDiagnosticasApi(codigoTurma) {
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    const recorrencias = {};
 
-    try {
-        const resposta = await fetch(`${DIAGNOSTICAS_API_BASE_URL}/api/turmas/${encodeURIComponent(codigoTurma)}/capacidades-criticas/${endpoint}?recorrentes=true`);
-        if (!resposta.ok) {
-            throw new Error("Não foi possível carregar as capacidades críticas recorrentes.");
-        }
+    diagnosticas.forEach(({ detalhes }) => {
+        const capacidadesCriticas = Array.isArray(detalhes?.capacidadesCriticas)
+            ? detalhes.capacidadesCriticas
+            : (Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : []);
 
-        const payload = await resposta.json();
-        return Array.isArray(payload)
-            ? payload.map((item) => ({
-                capacidade: item.capacidade || "-",
-                recorrencias: Number(item.recorrencias || 0)
-            }))
-            : [];
-    } catch (error) {
-        console.error(error);
-        return [];
-    }
+        capacidadesCriticas.forEach((item) => {
+            const nome = String(item?.capacidade || "").trim();
+            if (!nome) {
+                return;
+            }
+
+            recorrencias[nome] = (recorrencias[nome] || 0) + 1;
+        });
+    });
+
+    return Object.entries(recorrencias)
+        .map(([capacidade, recorrenciasTotal]) => ({
+            capacidade,
+            recorrencias: Number(recorrenciasTotal || 0)
+        }))
+        .sort((a, b) => b.recorrencias - a.recorrencias)
+        .slice(0, 8);
+}
+
+async function buscarConhecimentosDiagnosticosApi(codigoTurma) {
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    const recorrencias = {};
+
+    diagnosticas.forEach(({ detalhes }) => {
+        const capacidadesCriticas = Array.isArray(detalhes?.capacidadesCriticas)
+            ? detalhes.capacidadesCriticas
+            : (Array.isArray(detalhes?.capacidades) ? detalhes.capacidades : []);
+
+        capacidadesCriticas.forEach((item) => {
+            const nome = String(item?.conhecimento || item?.subfuncao || item?.capacidade || "").trim();
+            if (!nome) {
+                return;
+            }
+
+            recorrencias[nome] = (recorrencias[nome] || 0) + 1;
+        });
+    });
+
+    return Object.entries(recorrencias)
+        .map(([nome, recorrenciasTotal]) => ({
+            nome,
+            recorrencias: Number(recorrenciasTotal || 0)
+        }))
+        .sort((a, b) => b.recorrencias - a.recorrencias)
+        .slice(0, 8);
+}
+
+async function buscarCapacidadesDiagnosticasApi(codigoTurma) {
+    const diagnosticas = await carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma);
+    const recorrencias = {};
+
+    diagnosticas.forEach(({ detalhes }) => {
+        const capacidades = Array.isArray(detalhes?.capacidades)
+            ? detalhes.capacidades
+            : (Array.isArray(detalhes?.capacidadesCriticas) ? detalhes.capacidadesCriticas : []);
+
+        capacidades.forEach((item) => {
+            const nome = String(item?.capacidade || item?.descricao || "").trim();
+            if (!nome) {
+                return;
+            }
+
+            recorrencias[nome] = (recorrencias[nome] || 0) + 1;
+        });
+    });
+
+    return Object.entries(recorrencias)
+        .map(([nome, recorrenciasTotal]) => ({
+            nome,
+            recorrencias: Number(recorrenciasTotal || 0)
+        }))
+        .sort((a, b) => b.recorrencias - a.recorrencias)
+        .slice(0, 8);
 }
 
 function renderizarGraficoEvolucaoSaep(dados) {
@@ -3805,65 +4032,56 @@ function renderizarResumoDashboardSaep(codigoTurma) {
         return;
     }
 
-    container.innerHTML = '<div class="saep-empty-state">Carregando resumo...</div>';
+    const cacheTurma = SAEP_RESUMO_DASHBOARD_CACHE[codigoTurma];
+    const agora = Date.now();
+
+    if (cacheTurma?.html) {
+        container.innerHTML = cacheTurma.html;
+
+        if (agora - cacheTurma.timestamp < SAEP_RESUMO_DASHBOARD_CACHE_TTL_MS) {
+            return;
+        }
+    } else {
+        container.innerHTML = '<div class="saep-empty-state">Carregando resumo...</div>';
+    }
 
     Promise.all([
-        buscarEvolucaoDiagnosticasApi(codigoTurma),
-        buscarAlunosBaixoDesempenhoApi(codigoTurma),
-        buscarCapacidadesCriticasApi(codigoTurma, "objetivas"),
-        buscarCapacidadesCriticasApi(codigoTurma, "praticas"),
+        carregarAvaliacoesDiagnosticasConsolidadas(codigoTurma),
         buscarPlanosDaTurmaApi(codigoTurma)
-    ]).then(([evolucao, alunos, objetivas, praticas, planos]) => {
+    ]).then(([diagnosticas, planos]) => {
+        const alunosSet = new Set();
+        diagnosticas.forEach(({ detalhes }) => {
+            const desempenho = Array.isArray(detalhes?.desempenho) ? detalhes.desempenho : [];
+            desempenho.forEach((item) => {
+                const nome = String(item?.aluno || "").trim();
+                const acerto = Number(item?.acerto || 0);
+                const erro = Number(item?.erro || 0);
+                const total = acerto + erro;
+
+                if (!nome || total <= 0) {
+                    return;
+                }
+
+                if ((acerto / total) * 100 < 65) {
+                    alunosSet.add(nome);
+                }
+            });
+        });
+
+        const alunos = Array.from(alunosSet);
         const planosAndamento = (planos || []).filter((item) => ["A iniciar", "Em andamento"].includes(item.andamento || item.status));
 
-        container.innerHTML = `
+        const htmlResumo = `
             <div class="saep-dashboard-grid">
                 <div class="saep-card">
                     <div class="saep-card__header">
-                        <h3>Evolução das notas das avaliações</h3>
-                        <span class="saep-badge">Diagnósticas</span>
-                    </div>
-                    <div id="saepGraficoEvolucaoDiagnostica" class="saep-chart-area"></div>
-                </div>
-                <div class="saep-dashboard-stack">
-                    <div class="saep-card">
-                        <div class="saep-card__header">
-                            <h3>Alunos com baixo desempenho (&lt; 65%)</h3>
-                        </div>
-                        <div class="saep-list-stack">
-                            ${alunos.length === 0 ? '<div class="saep-empty-state">Nenhum aluno identificado com desempenho abaixo de 65%.</div>' : alunos.map((aluno) => `
-                                <div class="saep-list-item">
-                                    <strong>${aluno}</strong>
-                                    <span>Diagnóstico</span>
-                                </div>
-                            `).join("")}
-                        </div>
-                    </div>
-                    <div class="saep-card">
-                        <div class="saep-card__header">
-                            <h3>Capacidades Críticas Objetivas</h3>
-                        </div>
-                        <div class="saep-list-stack">
-                            ${objetivas.length === 0 ? '<div class="saep-empty-state">Nenhuma capacidade crítica recorrente</div>' : objetivas.map((item) => `
-                                <div class="saep-list-item">
-                                    <strong>${item.capacidade}</strong>
-                                    <span class="saep-badge">${item.recorrencias}x</span>
-                                </div>
-                            `).join("")}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="saep-dashboard-grid">
-                <div class="saep-card">
-                    <div class="saep-card__header">
-                        <h3>Capacidades Críticas Práticas</h3>
+                        <h3>Alunos com baixo desempenho (&lt; 65%)</h3>
                     </div>
                     <div class="saep-list-stack">
-                        ${praticas.length === 0 ? '<div class="saep-empty-state">Nenhuma capacidade crítica recorrente</div>' : praticas.map((item) => `
+                        ${alunos.length === 0 ? '<div class="saep-empty-state">Nenhum aluno identificado com desempenho abaixo de 65%.</div>' : alunos.map((aluno) => `
                             <div class="saep-list-item">
-                                <strong>${item.capacidade}</strong>
-                                <span class="saep-badge">${item.recorrencias}x</span>
+                                <strong>${aluno}</strong>
+                                <span>Diagnóstico</span>
                             </div>
                         `).join("")}
                     </div>
@@ -3884,7 +4102,15 @@ function renderizarResumoDashboardSaep(codigoTurma) {
             </div>
         `;
 
-        renderizarGraficoEvolucaoSaep(evolucao);
+        SAEP_RESUMO_DASHBOARD_CACHE[codigoTurma] = {
+            html: htmlResumo,
+            timestamp: Date.now()
+        };
+        container.innerHTML = htmlResumo;
+    }).catch(() => {
+        if (!cacheTurma?.html) {
+            container.innerHTML = '<div class="saep-empty-state">Não foi possível carregar o resumo no momento.</div>';
+        }
     });
 }
 
@@ -3954,8 +4180,8 @@ function renderizarResumoPedagogicoSaep(codigoTurma) {
             : `<div class="saep-empty-state">Importe uma planilha SAEP para gerar a análise automática.</div>`;
     }
 
-    renderizarResumoNotasSaep(avaliacoesObjetivo, avaliacoesPratico);
-    renderizarResumoCapacidadesSaep(avaliacoesObjetivo, avaliacoesPratico, indicadores.principais);
+    renderizarResumoNotasSaep(codigoTurma, avaliacoesPratico);
+    renderizarResumoCapacidadesSaep(codigoTurma);
     renderizarResumoPlanoSaep(codigoTurma, acoes);
     renderizarResumoDashboardSaep(codigoTurma);
 }
@@ -4009,8 +4235,6 @@ function renderizarDetalhesSaep() {
         botaoEditarDataSaep.onclick = () => abrirModalCadastroSaep(codigoTurma);
     }
 
-    renderizarResumoPedagogicoSaep(codigoTurma);
-
     configurarHistoricoSaep(codigoTurma, turma, {
         dataInicio: turma.dataInicio || "",
         totalAcoes: acoes.length,
@@ -4045,8 +4269,16 @@ function renderizarDetalhesSaep() {
     }
 
     document.getElementById("btnNovaAcao").onclick = () => abrirModalAcaoSaep();
-    document.getElementById("btnNovaAvaliacaoObjetivo").onclick = () => abrirModalAvaliacaoSaep("objetivo");
-    document.getElementById("btnNovaAvaliacaoPratico").onclick = () => abrirModalAvaliacaoSaep("pratico");
+
+    const btnNovaAvaliacaoObjetivo = document.getElementById("btnNovaAvaliacaoObjetivo");
+    if (btnNovaAvaliacaoObjetivo) {
+        btnNovaAvaliacaoObjetivo.onclick = () => abrirModalAvaliacaoSaep("objetivo");
+    }
+
+    const btnNovaAvaliacaoPratico = document.getElementById("btnNovaAvaliacaoPratico");
+    if (btnNovaAvaliacaoPratico) {
+        btnNovaAvaliacaoPratico.onclick = () => abrirModalAvaliacaoSaep("pratico");
+    }
 
     renderizarTabelaPlanoSaep(codigoTurma);
     renderizarTabelaAvaliacoesSaep(codigoTurma, "objetivo");
@@ -4130,7 +4362,8 @@ async function salvarDiagnostica(event, codigoTurma) {
         const capacidadesCriticas = parseLinhasDiagnostica(capacidadesCriticasTexto).map((campos) => ({
             capacidade: campos[0] || "-",
             subfuncao: campos[1] || "-",
-            percentual_desenvolvimento: campos[2] || "-"
+            conhecimento: campos.length >= 4 ? (campos[2] || "-") : "-",
+            percentual_desenvolvimento: campos.length >= 4 ? (campos[3] || "-") : (campos[2] || "-")
         }));
 
         if (capacidadeListaVazia(capacidadesAvaliadas) || capacidadeListaVazia(desempenho) || capacidadeListaVazia(capacidadesCriticas)) {
@@ -4154,6 +4387,7 @@ async function salvarDiagnostica(event, codigoTurma) {
             }
         });
         salvarTurmasNoStorage(diagnosticas, SAEP_DIAGNOSTICAS_MANUAIS_STORAGE_KEY);
+        invalidarCacheResumoDashboardSaep(codigoTurma);
 
         limparRascunhoFormulario("formCadastroDiagnostica");
         form.reset();
@@ -4211,18 +4445,42 @@ function obterMapaObservacoesAlunosSaep() {
     return dados;
 }
 
-function obterObservacoesAlunosSaep(codigoTurma) {
-    const mapa = obterMapaObservacoesAlunosSaep();
-    return String(mapa[codigoTurma] || "");
+function obterChaveObservacaoAlunoSaep(linha) {
+    return [
+        String(linha?.diagnosticaId || "sem-diagnostica"),
+        String(linha?.indiceDesempenho ?? "sem-indice"),
+        String(linha?.aluno || "sem-aluno").trim().toLowerCase(),
+        String(linha?.capacidade || "sem-capacidade").trim().toLowerCase(),
+        String(linha?.dataAvaliacao || "sem-data")
+    ].join("__");
 }
 
-function salvarObservacoesAlunosSaep(codigoTurma, texto) {
+function obterObservacaoAlunoSaep(codigoTurma, chaveObservacao) {
+    if (!codigoTurma || !chaveObservacao) {
+        return "";
+    }
+
+    const mapa = obterMapaObservacoesAlunosSaep();
+    const dadosTurma = mapa[codigoTurma];
+    if (!dadosTurma || typeof dadosTurma !== "object" || Array.isArray(dadosTurma)) {
+        return "";
+    }
+
+    return String(dadosTurma[chaveObservacao] || "");
+}
+
+function salvarObservacaoAlunoSaep(codigoTurma, chaveObservacao, texto) {
     if (!codigoTurma) {
         return;
     }
 
     const mapa = obterMapaObservacoesAlunosSaep();
-    mapa[codigoTurma] = String(texto || "").trim();
+    const dadosTurma = mapa[codigoTurma] && typeof mapa[codigoTurma] === "object" && !Array.isArray(mapa[codigoTurma])
+        ? mapa[codigoTurma]
+        : {};
+
+    dadosTurma[chaveObservacao] = String(texto || "").trim();
+    mapa[codigoTurma] = dadosTurma;
     salvarTurmasNoStorage(mapa, SAEP_ALUNOS_OBSERVACOES_STORAGE_KEY);
 }
 
@@ -4328,13 +4586,14 @@ function renderizarCardDiagnostica(avaliacao, detalhes) {
                         ${capacidadesCriticas.length > 0 ? `
                             <table class="saep-diagnostica-table">
                                 <thead>
-                                    <tr><th>Capacidade</th><th>Subfunção</th><th>%</th></tr>
+                                    <tr><th>Capacidade</th><th>Subfunção</th><th>Conhecimento</th><th>%</th></tr>
                                 </thead>
                                 <tbody>
                                     ${capacidadesCriticas.map((item) => `
                                         <tr>
                                             <td>${item.capacidade || "-"}</td>
                                             <td>${item.subfuncao || "-"}</td>
+                                            <td>${item.conhecimento || "-"}</td>
                                             <td>${item.percentual_desenvolvimento ?? "-"}</td>
                                         </tr>
                                     `).join("")}
@@ -4522,7 +4781,6 @@ async function renderizarAlunosDiagnosticaSaep(codigoTurma) {
 
     try {
         const linhas = await carregarLinhasAlunosDiagnosticaSaep(codigoTurma);
-        const observacoes = obterObservacoesAlunosSaep(codigoTurma);
 
         container.innerHTML = `
             <div class="table-scroll">
@@ -4536,13 +4794,14 @@ async function renderizarAlunosDiagnosticaSaep(codigoTurma) {
                             <th>Data</th>
                             <th>Nota média</th>
                             <th>Origem</th>
+                            <th>Observações</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${linhas.length === 0 ? `
                             <tr>
-                                <td colspan="8">Cadastre uma avaliação diagnóstica para preencher esta aba com os alunos.</td>
+                                <td colspan="9">Cadastre uma avaliação diagnóstica para preencher esta aba com os alunos.</td>
                             </tr>
                         ` : linhas.map((linha) => `
                             <tr>
@@ -4554,8 +4813,12 @@ async function renderizarAlunosDiagnosticaSaep(codigoTurma) {
                                 <td>${linha.notaMedia}</td>
                                 <td>${linha.origem}</td>
                                 <td>
+                                    <button type="button" class="btn-edit" title="Cadastrar observação do aluno" onclick="editarObservacaoAlunoSaep('${codigoTurma}', '${obterChaveObservacaoAlunoSaep(linha)}')">✏️</button>
+                                    <span class="saep-observacao-preview">${obterObservacaoAlunoSaep(codigoTurma, obterChaveObservacaoAlunoSaep(linha)) || "Sem observação"}</span>
+                                </td>
+                                <td>
                                     ${linha.editavel
-            ? `<button type="button" class="btn-edit" title="Editar registro do aluno" onclick="editarRegistroAlunoDiagnosticaSaep('${linha.diagnosticaId}', ${linha.indiceDesempenho})">✏️</button>`
+            ? `<button type="button" class="btn-edit" title="Editar ações do registro do aluno" onclick="editarRegistroAlunoDiagnosticaSaep('${linha.diagnosticaId}', ${linha.indiceDesempenho})">✏️</button>`
             : "-"}
                                 </td>
                             </tr>
@@ -4563,32 +4826,26 @@ async function renderizarAlunosDiagnosticaSaep(codigoTurma) {
                     </tbody>
                 </table>
             </div>
-            <div class="saep-card" style="margin-top: 1rem;">
-                <div class="saep-card__header">
-                    <h3>Observações</h3>
-                </div>
-                <label class="saep-full-width" for="saepObservacoesAlunos">
-                    <textarea id="saepObservacoesAlunos" rows="4" placeholder="Adicione observações gerais sobre os alunos desta turma...">${observacoes}</textarea>
-                </label>
-                <div class="form-actions" style="margin-top: 0.75rem;">
-                    <button type="button" class="btn-primary" id="btnSalvarObservacoesAlunosSaep">Salvar observações</button>
-                </div>
-            </div>
         `;
-
-        const botaoSalvarObservacoes = document.getElementById("btnSalvarObservacoesAlunosSaep");
-        const campoObservacoes = document.getElementById("saepObservacoesAlunos");
-
-        if (botaoSalvarObservacoes && campoObservacoes) {
-            botaoSalvarObservacoes.onclick = () => {
-                salvarObservacoesAlunosSaep(codigoTurma, campoObservacoes.value);
-                alert("Observações salvas com sucesso.");
-            };
-        }
     } catch (error) {
         console.error(error);
         container.innerHTML = '<div class="saep-empty-state">Não foi possível carregar os alunos no momento.</div>';
     }
+}
+
+function editarObservacaoAlunoSaep(codigoTurma, chaveObservacao) {
+    if (!codigoTurma || !chaveObservacao) {
+        return;
+    }
+
+    const observacaoAtual = obterObservacaoAlunoSaep(codigoTurma, chaveObservacao);
+    const novaObservacao = window.prompt("Digite a observação deste aluno:", observacaoAtual);
+    if (novaObservacao === null) {
+        return;
+    }
+
+    salvarObservacaoAlunoSaep(codigoTurma, chaveObservacao, novaObservacao);
+    renderizarAlunosDiagnosticaSaep(codigoTurma);
 }
 
 async function buscarPlanosDaTurmaApi(codigoTurma) {
@@ -4636,6 +4893,7 @@ async function salvarPlanoDaTurmaApi(codigoTurma, plano) {
                     andamento: item.andamento || item.status || "A iniciar",
                     status: item.status || item.andamento || "A iniciar"
                 }));
+            invalidarCacheResumoDashboardSaep(codigoTurma);
             resolve(planoPersistido);
         }, 120);
     });
@@ -4779,8 +5037,17 @@ function salvarAcaoSaep(event) {
 }
 
 function excluirAcaoSaep(id) {
-    const acoes = (carregarTurmasDoStorage("saepAcoes") || []).filter((item) => item.id !== id);
+    const acoesAtuais = carregarTurmasDoStorage("saepAcoes") || [];
+    const acaoRemovida = acoesAtuais.find((item) => item.id === id);
+    const acoes = acoesAtuais.filter((item) => item.id !== id);
     salvarTurmasNoStorage(acoes, "saepAcoes");
+
+    if (acaoRemovida?.codigoTurma) {
+        invalidarCacheResumoDashboardSaep(acaoRemovida.codigoTurma);
+    } else {
+        invalidarCacheResumoDashboardSaep();
+    }
+
     renderizarDetalhesSaep();
 }
 
@@ -4936,7 +5203,7 @@ function renderizarTurmasSaep() {
     corpo.innerHTML = "";
 
     if (painel) {
-        painel.style.display = "none";
+        painel.style.display = "block";
     }
 
     if (conteudo) {
@@ -4978,6 +5245,8 @@ function renderizarTurmasSaep() {
             abrirPaginaDetalhesSaep(botao.dataset.turma);
         });
     });
+
+    mostrarAbaSaep("historico");
 }
 
 function carregarRegistrosSaepGestao() {
@@ -5016,7 +5285,6 @@ function renderizarRegistrosSaepGestao(container, badge) {
                             <button type="button" class="btn-delete" title="Excluir lembrete" onclick="excluirRegistroSaepGestao('${registro.id}')">🗑️</button>
                         </div>
                         <p class="saep-registro-item__descricao">${registro.descricao}</p>
-                        <span class="saep-registro-item__data">${registro.criadoEm ? new Date(registro.criadoEm).toLocaleString("pt-BR") : "-"}</span>
                     </li>
                 `).join("")}
             </ul>
@@ -5126,12 +5394,19 @@ function mostrarAbaSaep(aba, turmaSelecionada = null) {
     }
 
     if (!turma) {
+        if (aba === "historico") {
+            conteudo.innerHTML = "<p>Selecione uma turma para acessar o histórico escolar do SAEP.</p>";
+            return;
+        }
+
         conteudo.innerHTML = "<p>Selecione uma turma.</p>";
         return;
     }
 
     let texto = "";
-    if (aba === "plano") {
+    if (aba === "historico") {
+        texto = `<h3>Histórico</h3><p>Abra a turma ${turma.codigoTurma} para consultar e registrar o histórico escolar completo.</p>`;
+    } else if (aba === "plano") {
         texto = `<h3>Plano de ação</h3><p>Registrar ações pedagógicas para a turma ${turma.codigoTurma}.</p>`;
     } else if (aba === "objetivos") {
         texto = `<h3>Avaliações objetivas</h3><p>Organizar as avaliações objetivas da turma ${turma.codigoTurma}.</p>`;
@@ -5175,10 +5450,12 @@ function renderizarDetalhesTurmaNaPagina() {
     const titulo = document.getElementById("tituloTurmaOcorrencia");
     const dadosTurma = document.getElementById("dadosTurmaOcorrencia");
     const containerAlunos = document.getElementById("listaAlunosOcorrencia");
+    const containerOcorrenciasTurma = document.getElementById("listaOcorrenciasTurma");
     const botaoCadastrar = document.getElementById("btnCadastrarAlunos");
+    const botaoCadastrarOcorrenciaTurma = document.getElementById("btnCadastrarOcorrenciaTurma");
     const campoCodigo = document.getElementById("codigoTurmaOcorrencia");
 
-    if (!titulo || !dadosTurma || !containerAlunos || !botaoCadastrar || !campoCodigo) {
+    if (!titulo || !dadosTurma || !containerAlunos || !containerOcorrenciasTurma || !botaoCadastrar || !botaoCadastrarOcorrenciaTurma || !campoCodigo) {
         return;
     }
 
@@ -5203,26 +5480,11 @@ function renderizarDetalhesTurmaNaPagina() {
     dadosTurma.textContent = `${turma.curso} | ${turma.instrutor} | ${formatarDataParaExibir(turma.dataInicio)} a ${formatarDataParaExibir(turma.dataFim)}`;
     campoCodigo.value = codigoTurma;
     botaoCadastrar.onclick = () => cadastrarAlunosDaTurma(codigoTurma);
+    botaoCadastrarOcorrenciaTurma.onclick = () => abrirModalOcorrenciaTurma(codigoTurma);
 
     const alunos = carregarAlunosDaTurma(codigoTurma);
     const ocorrencias = carregarOcorrenciasDaTurma(codigoTurma);
     containerAlunos.innerHTML = "";
-
-    const totalOcorrencias = ocorrencias.length;
-
-    const resumo = document.createElement("div");
-    resumo.className = "students-summary";
-    resumo.innerHTML = `
-        <div class="students-summary__item">
-            <strong>${alunos.length}</strong>
-            <span>alunos cadastrados</span>
-        </div>
-        <div class="students-summary__item">
-            <strong>${totalOcorrencias}</strong>
-            <span>ocorrências registradas</span>
-        </div>
-    `;
-    containerAlunos.appendChild(resumo);
 
     if (alunos.length === 0) {
         const vazio = document.createElement("div");
@@ -5245,8 +5507,8 @@ function renderizarDetalhesTurmaNaPagina() {
                     ${ocorrenciasAluno.length > 0 ? `<span class="student-card__badge">${ocorrenciasAluno.length} ocorrência${ocorrenciasAluno.length > 1 ? "s" : ""}</span>` : '<span class="student-card__badge student-card__badge--muted">Sem ocorrências</span>'}
                 </div>
                 <div class="student-card__actions">
-                    <button type="button" class="btn-secondary student-card__button" data-editar-ocorrencia="${aluno}">Editar ocorrência</button>
-                    <button type="button" class="btn-delete student-card__button" data-excluir-aluno="${aluno}">Excluir nome</button>
+                    <button type="button" class="btn-secondary student-card__button student-card__icon-button" title="Editar ocorrência" aria-label="Editar ocorrência" data-editar-ocorrencia="${aluno}">✏️</button>
+                    <button type="button" class="btn-delete student-card__button student-card__icon-button" title="Excluir nome" aria-label="Excluir nome" data-excluir-aluno="${aluno}">🗑️</button>
                     <button type="button" class="btn-primary student-card__button">Cadastrar ocorrência</button>
                 </div>
             </div>
@@ -5276,6 +5538,92 @@ function renderizarDetalhesTurmaNaPagina() {
     });
 
     containerAlunos.appendChild(fragmento);
+
+    renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma);
+    configurarAbasOcorrenciasTurma(codigoTurma);
+    mostrarAbaOcorrenciasTurma(codigoTurma, obterAbaOcorrenciasTurma(codigoTurma));
+}
+
+function configurarAbasOcorrenciasTurma(codigoTurma) {
+    document.querySelectorAll("[data-aba-ocorrencia]").forEach((botao) => {
+        botao.onclick = () => {
+            mostrarAbaOcorrenciasTurma(codigoTurma, botao.dataset.abaOcorrencia || "alunos");
+        };
+    });
+}
+
+function mostrarAbaOcorrenciasTurma(codigoTurma, aba) {
+    const abaNormalizada = aba === "turma" ? "turma" : "alunos";
+    const containerAlunos = document.getElementById("listaAlunosOcorrencia");
+    const containerOcorrenciasTurma = document.getElementById("listaOcorrenciasTurma");
+    const botaoCadastrarAlunos = document.getElementById("btnCadastrarAlunos");
+    const botaoCadastrarOcorrenciaTurma = document.getElementById("btnCadastrarOcorrenciaTurma");
+
+    document.querySelectorAll("[data-aba-ocorrencia]").forEach((botao) => {
+        botao.classList.toggle("active", botao.dataset.abaOcorrencia === abaNormalizada);
+    });
+
+    if (containerAlunos) {
+        containerAlunos.style.display = abaNormalizada === "alunos" ? "block" : "none";
+    }
+
+    if (containerOcorrenciasTurma) {
+        containerOcorrenciasTurma.style.display = abaNormalizada === "turma" ? "block" : "none";
+    }
+
+    if (botaoCadastrarAlunos) {
+        botaoCadastrarAlunos.style.display = abaNormalizada === "alunos" ? "inline-flex" : "none";
+    }
+
+    if (botaoCadastrarOcorrenciaTurma) {
+        botaoCadastrarOcorrenciaTurma.style.display = abaNormalizada === "turma" ? "inline-flex" : "none";
+    }
+
+    salvarAbaOcorrenciasTurma(codigoTurma, abaNormalizada);
+}
+
+function renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma) {
+    const container = document.getElementById("listaOcorrenciasTurma");
+    if (!container) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasGeraisDaTurma(codigoTurma)
+        .slice()
+        .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime());
+
+    container.innerHTML = `
+        <div class="saep-card">
+            <div class="saep-card__header">
+                <h3>Ocorrências da turma</h3>
+            </div>
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo de ocorrência</th>
+                            <th>Ocorrência</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${ocorrencias.length === 0 ? '<tr><td colspan="4">Nenhuma ocorrência da turma cadastrada.</td></tr>' : ocorrencias.map((item) => `
+                            <tr>
+                                <td>${item.data ? formatarDataParaExibir(item.data) : "-"}</td>
+                                <td>${item.tipo || "-"}</td>
+                                <td>${item.descricao || "-"}</td>
+                                <td>
+                                    <button type="button" class="btn-edit" title="Editar ocorrência da turma" onclick="abrirModalOcorrenciaTurma('${codigoTurma}', '${item.id}')">✏️</button>
+                                    <button type="button" class="btn-delete" title="Excluir ocorrência da turma" onclick="excluirOcorrenciaTurma('${codigoTurma}', '${item.id}')">🗑️</button>
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 function cadastrarAlunosDaTurma(codigoTurma) {
@@ -5305,7 +5653,6 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "", ocorrencia = null) {
     const campoAluno = document.getElementById("alunoOcorrencia");
     const nomeAluno = document.getElementById("nomeAlunoOcorrencia");
     const descricao = document.getElementById("descricaoOcorrencia");
-    const assistido = document.getElementById("textoAssistido");
     const campoId = document.getElementById("ocorrenciaIdEdicao");
     const selectTipo = document.getElementById("tipoOcorrencia");
 
@@ -5338,23 +5685,116 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "", ocorrencia = null) {
         descricao.value = ocorrencia?.descricao || "";
     }
 
-    if (assistido) {
-        assistido.value = ocorrencia?.textoAssistido || "";
-    }
-
     if (selectTipo) {
         selectTipo.value = ocorrencia?.tipo || "Pedagógica";
-    }
-
-    const botaoGerar = document.getElementById("btnGerarTexto");
-    if (botaoGerar) {
-        botaoGerar.onclick = gerarSugestaoTexto;
     }
 
     const botaoSalvar = document.getElementById("salvarOcorrencia");
     if (botaoSalvar) {
         botaoSalvar.onclick = salvarOcorrencia;
     }
+}
+
+function abrirModalOcorrenciaTurma(codigoTurma, ocorrenciaId = "") {
+    const modal = document.getElementById("modalOcorrenciaTurma");
+    const form = document.getElementById("formOcorrenciaTurma");
+    const titulo = document.getElementById("modalTituloOcorrenciaTurma");
+    const campoCodigo = document.getElementById("codigoTurmaOcorrenciaTurma");
+    const campoId = document.getElementById("ocorrenciaTurmaIdEdicao");
+    const campoData = document.getElementById("dataOcorrenciaTurma");
+    const campoTipo = document.getElementById("tipoOcorrenciaTurma");
+    const campoDescricao = document.getElementById("descricaoOcorrenciaTurma");
+    const botaoCancelar = document.getElementById("btnCancelarOcorrenciaTurma");
+
+    if (!modal || !form || !titulo || !campoCodigo || !campoId || !campoData || !campoTipo || !campoDescricao || !botaoCancelar) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasGeraisDaTurma(codigoTurma);
+    const ocorrencia = ocorrencias.find((item) => item.id === ocorrenciaId) || null;
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+
+    campoCodigo.value = codigoTurma;
+    campoId.value = ocorrencia?.id || "";
+    campoData.value = ocorrencia?.data || "";
+    campoTipo.value = ocorrencia?.tipo || "Pedagógica";
+    campoDescricao.value = ocorrencia?.descricao || "";
+    titulo.textContent = ocorrencia ? "Editar ocorrência da turma" : "Cadastrar ocorrência da turma";
+
+    botaoCancelar.onclick = fecharModalOcorrenciaTurma;
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            fecharModalOcorrenciaTurma();
+        }
+    };
+
+    form.onsubmit = (event) => salvarOcorrenciaTurma(event);
+}
+
+function fecharModalOcorrenciaTurma() {
+    const modal = document.getElementById("modalOcorrenciaTurma");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+function salvarOcorrenciaTurma(event) {
+    event.preventDefault();
+
+    const codigoTurma = document.getElementById("codigoTurmaOcorrenciaTurma")?.value?.trim();
+    const ocorrenciaId = document.getElementById("ocorrenciaTurmaIdEdicao")?.value?.trim();
+    const data = document.getElementById("dataOcorrenciaTurma")?.value || "";
+    const tipo = document.getElementById("tipoOcorrenciaTurma")?.value || "Pedagógica";
+    const descricao = document.getElementById("descricaoOcorrenciaTurma")?.value?.trim() || "";
+
+    if (!codigoTurma || !data || !descricao) {
+        alert("Informe a data e a ocorrência da turma.");
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasGeraisDaTurma(codigoTurma);
+    const payload = {
+        id: ocorrenciaId || `${Date.now()}`,
+        data,
+        tipo,
+        descricao
+    };
+
+    if (ocorrenciaId) {
+        const indice = ocorrencias.findIndex((item) => item.id === ocorrenciaId);
+        if (indice >= 0) {
+            ocorrencias[indice] = payload;
+        }
+    } else {
+        ocorrencias.push(payload);
+    }
+
+    salvarOcorrenciasGeraisDaTurma(codigoTurma, ocorrencias);
+    limparRascunhoFormulario("formOcorrenciaTurma");
+    fecharModalOcorrenciaTurma();
+    renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma);
+    mostrarAbaOcorrenciasTurma(codigoTurma, "turma");
+}
+
+function excluirOcorrenciaTurma(codigoTurma, ocorrenciaId) {
+    if (!codigoTurma || !ocorrenciaId) {
+        return;
+    }
+
+    const confirmou = window.confirm("Deseja realmente excluir esta ocorrência da turma?");
+    if (!confirmou) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasGeraisDaTurma(codigoTurma).filter((item) => item.id !== ocorrenciaId);
+    salvarOcorrenciasGeraisDaTurma(codigoTurma, ocorrencias);
+    renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma);
+    mostrarAbaOcorrenciasTurma(codigoTurma, "turma");
 }
 
 function obterApiKeyGeminiOcorrencia() {
@@ -5372,17 +5812,16 @@ function obterApiKeyGeminiOcorrencia() {
     return chaveConfig;
 }
 
-function solicitarApiKeyGeminiOcorrencia() {
-    const chaveInformada = window.prompt("Informe sua API Key do Gemini para gerar a sugestão:", "");
-    const chave = (chaveInformada || "").trim();
-
-    if (!chave) {
+function gerarSugestaoTextoLocalOcorrencia(textoDescricao) {
+    const textoLimpo = String(textoDescricao || "").replace(/\s+/g, " ").trim();
+    if (!textoLimpo) {
         return "";
     }
 
-    sessionStorage.setItem(GEMINI_KEY_SESSION_STORAGE, chave);
-    localStorage.setItem(GEMINI_KEY_LOCAL_STORAGE, chave);
-    return chave;
+    const primeiraMaiuscula = textoLimpo.charAt(0).toUpperCase() + textoLimpo.slice(1);
+    const textoFinal = /[.!?]$/.test(primeiraMaiuscula) ? primeiraMaiuscula : `${primeiraMaiuscula}.`;
+
+    return `Durante o período letivo, foi registrada a seguinte ocorrência: ${textoFinal} O caso foi devidamente formalizado para acompanhamento pedagógico.`;
 }
 
 async function gerarSugestaoTextoComGemini(textoDescricao, apiKeySobrescrita = "") {
@@ -5441,7 +5880,6 @@ function fecharModalOcorrencia() {
     const aluno = document.getElementById("alunoOcorrencia");
     const nome = document.getElementById("nomeAlunoOcorrencia");
     const descricao = document.getElementById("descricaoOcorrencia");
-    const textoAssistido = document.getElementById("textoAssistido");
     const ocorrenciaId = document.getElementById("ocorrenciaIdEdicao");
 
     if (codigo) {
@@ -5455,9 +5893,6 @@ function fecharModalOcorrencia() {
     }
     if (descricao) {
         descricao.value = "";
-    }
-    if (textoAssistido) {
-        textoAssistido.value = "";
     }
     if (ocorrenciaId) {
         ocorrenciaId.value = "";
@@ -5477,13 +5912,12 @@ async function gerarSugestaoTexto() {
         return;
     }
 
-    let apiKey = obterApiKeyGeminiOcorrencia();
+    const apiKey = obterApiKeyGeminiOcorrencia();
+    const sugestaoLocal = gerarSugestaoTextoLocalOcorrencia(descricao);
+
     if (!apiKey) {
-        apiKey = solicitarApiKeyGeminiOcorrencia();
-        if (!apiKey) {
-            assistido.value = "A geração foi cancelada porque a API Key do Gemini não foi informada.";
-            return;
-        }
+        assistido.value = sugestaoLocal;
+        return;
     }
 
     assistido.value = "Gerando sugestão com IA...";
@@ -5501,12 +5935,12 @@ async function gerarSugestaoTexto() {
         if (mensagemErro.includes("api key") || mensagemErro.includes("401") || mensagemErro.includes("403")) {
             sessionStorage.removeItem(GEMINI_KEY_SESSION_STORAGE);
             localStorage.removeItem(GEMINI_KEY_LOCAL_STORAGE);
-            assistido.value = "A API Key do Gemini parece inválida ou sem permissão. Clique em Gerar sugestão para informar uma nova chave.";
+            assistido.value = sugestaoLocal;
             return;
         }
     }
 
-    assistido.value = "Não foi possível gerar a sugestão com IA no momento. Revise a conexão e a API Key do Gemini.";
+    assistido.value = sugestaoLocal;
 }
 
 function salvarOcorrencia() {
@@ -5514,7 +5948,6 @@ function salvarOcorrencia() {
     const nomeAluno = document.getElementById("nomeAlunoOcorrencia").value.trim() || document.getElementById("alunoOcorrencia").value.trim();
     const tipo = document.getElementById("tipoOcorrencia").value;
     const descricao = document.getElementById("descricaoOcorrencia").value.trim();
-    const assistido = document.getElementById("textoAssistido").value.trim();
     const ocorrenciaId = document.getElementById("ocorrenciaIdEdicao").value.trim();
 
     if (!codigoTurma || !nomeAluno || !descricao) {
@@ -5523,7 +5956,7 @@ function salvarOcorrencia() {
     }
 
     const ocorrencias = carregarOcorrenciasDaTurma(codigoTurma);
-    const textoFinal = assistido || `Ocorrência ${tipo} registrada para ${nomeAluno}. ${descricao}`;
+    const textoFinal = `Ocorrência ${tipo} registrada para ${nomeAluno}. ${descricao}`;
 
     if (ocorrenciaId) {
         const indice = ocorrencias.findIndex((item) => item.id === ocorrenciaId);
@@ -5533,11 +5966,11 @@ function salvarOcorrencia() {
                 aluno: nomeAluno,
                 tipo,
                 descricao: textoFinal,
-                textoAssistido: assistido
+                textoAssistido: ""
             };
         }
     } else {
-        ocorrencias.push({ id: `${Date.now()}`, aluno: nomeAluno, tipo, descricao: textoFinal, textoAssistido: assistido });
+        ocorrencias.push({ id: `${Date.now()}`, aluno: nomeAluno, tipo, descricao: textoFinal, textoAssistido: "" });
     }
 
     salvarOcorrenciasDaTurma(codigoTurma, ocorrencias);

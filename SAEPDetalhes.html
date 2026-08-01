@@ -19,11 +19,8 @@
             </div>
             <button type="button" class="saep-sidebar__item active" data-aba="resumo">Resumo</button>
             <button type="button" class="saep-sidebar__item" data-aba="diagnosticas">Avaliações Diagnósticas</button>
-            <button type="button" class="saep-sidebar__item" data-aba="alunos">Alunos</button>
             <button type="button" class="saep-sidebar__item" data-aba="plano">Plano de Ação</button>
-            <button type="button" class="saep-sidebar__item" data-aba="objetivos">Avaliações Objetivas</button>
             <button type="button" class="saep-sidebar__item" data-aba="praticos">Avaliações Práticas</button>
-            <button type="button" class="saep-sidebar__item" data-aba="saep">SAEP</button>
         </aside>
 
         <main class="saep-main">
@@ -68,23 +65,7 @@
                     </div>
                 </div>
 
-                <div class="saep-grid">
-                    <div class="saep-card saep-full-width">
-                        <div class="saep-card__header">
-                            <h3>Andamento do plano de ação</h3>
-                        </div>
-                        <div id="saepGraficoPlano"></div>
-                    </div>
-                </div>
-
                 <div id="saepResumoDashboard" class="saep-resumo-dashboard"></div>
-
-                <div class="saep-card saep-full-width">
-                    <div class="saep-card__header">
-                        <h3>Análise dos dados importados</h3>
-                    </div>
-                    <div id="saepAnaliseImportacao"></div>
-                </div>
             </section>
 
             <section id="saepSectionDiagnosticas" class="saep-section" style="display:none;">
@@ -191,7 +172,7 @@
     </div>
 
     <div id="modalCadastroDiagnostica" class="modal-cadastro" aria-hidden="true">
-        <div class="modal-content">
+        <div class="modal-content modal-content--diagnostica">
             <h3>Cadastrar Avaliação Diagnóstica</h3>
             <form id="formCadastroDiagnostica">
                 <div class="form-grid">
@@ -212,8 +193,8 @@
                         <textarea id="diagnosticaDesempenhoAlunos" rows="5" required placeholder="Ex.: Ana | Leitura | 8 | 2"></textarea>
                     </label>
                     <label class="saep-full-width">
-                        Capacidades críticas (uma por linha: capacidade | subfunção | percentual)
-                        <textarea id="diagnosticaCapacidadesCriticas" rows="4" required placeholder="Ex.: Interpretação textual | Localizar informação | 42"></textarea>
+                        Capacidades críticas (uma por linha: capacidade | subfunção | conhecimento | percentual)
+                        <textarea id="diagnosticaCapacidadesCriticas" rows="4" required placeholder="Ex.: Interpretação textual | Localizar informação | Leitura e análise | 42"></textarea>
                     </label>
                     <label class="saep-full-width">
                         Observação

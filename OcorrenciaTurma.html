@@ -35,17 +35,26 @@
                             <h2 id="tituloTurmaOcorrencia" class="o-container__turmas">Turma</h2>
                             <p id="dadosTurmaOcorrencia" class="panel-subtitle"></p>
                         </div>
-                        <button type="button" id="btnCadastrarAlunos" class="o-container__turmas__cadastrar">Cadastrar Alunos</button>
+                        <div class="panel-header__actions">
+                            <button type="button" id="btnCadastrarAlunos" class="o-container__turmas__cadastrar">Cadastrar Alunos</button>
+                            <button type="button" id="btnCadastrarOcorrenciaTurma" class="o-container__turmas__cadastrar" style="display:none;">Cadastrar Ocorrência da Turma</button>
+                        </div>
+                    </div>
+
+                    <div class="seeduc-submenu occurrence-submenu">
+                        <button type="button" class="seeduc-submenu__item active" data-aba-ocorrencia="alunos">Alunos</button>
+                        <button type="button" class="seeduc-submenu__item" data-aba-ocorrencia="turma">Ocorrências da turma</button>
                     </div>
 
                     <div id="listaAlunosOcorrencia" class="alunos-lista"></div>
+                    <div id="listaOcorrenciasTurma" class="alunos-lista" style="display:none;"></div>
                 </section>
             </main>
         </div>
     </div>
 
     <div id="modalOcorrencia" class="modal-cadastro" aria-hidden="true">
-        <div class="modal-content">
+        <div class="modal-content modal-content--ocorrencia">
             <form id="formOcorrencia">
                 <h3 id="modalTituloOcorrencia">Adicionar ocorrência</h3>
                 <input type="hidden" id="codigoTurmaOcorrencia" value="">
@@ -61,26 +70,54 @@
                             <option value="Frequência">Frequência</option>
                         </select>
                     </label>
-                    <div class="occurrence-editor-grid">
+                    <div class="occurrence-editor-grid saep-full-width">
                         <label class="occurrence-editor-card">
                             <span class="occurrence-editor-card__title">Texto da ocorrência</span>
                             <span class="occurrence-editor-card__subtitle">Escreva o relato objetivo do que aconteceu.</span>
                             <textarea id="descricaoOcorrencia" rows="8" placeholder="Descreva a situação..."></textarea>
                         </label>
-                        <label class="occurrence-editor-card">
-                            <span class="occurrence-editor-card__title">Sugestão do agente de IA</span>
-                            <span class="occurrence-editor-card__subtitle">Clique em gerar sugestão para obter uma versão formal, corporativa e escolar.</span>
-                            <textarea id="textoAssistido" rows="8" placeholder="A sugestão formal aparecerá aqui..."></textarea>
-                        </label>
                     </div>
                 </div>
 
-                <div class="form-actions form-actions--ocorrencia">
-                    <button type="button" id="btnGerarTexto" class="btn-secondary">Gerar sugestão formal</button>
+                <div class="form-actions">
                     <div class="form-actions__right">
                         <button type="button" id="salvarOcorrencia" class="btn-primary">Salvar</button>
                         <button type="button" class="btn-secondary" onclick="fecharModalOcorrencia()">Cancelar</button>
                     </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalOcorrenciaTurma" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content">
+            <form id="formOcorrenciaTurma">
+                <h3 id="modalTituloOcorrenciaTurma">Cadastrar ocorrência da turma</h3>
+                <input type="hidden" id="codigoTurmaOcorrenciaTurma" value="">
+                <input type="hidden" id="ocorrenciaTurmaIdEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        Data
+                        <input id="dataOcorrenciaTurma" type="date" required>
+                    </label>
+                    <label>
+                        Tipo de ocorrência
+                        <select id="tipoOcorrenciaTurma">
+                            <option value="Pedagógica">Pedagógica</option>
+                            <option value="Comportamental">Comportamental</option>
+                            <option value="Frequência">Frequência</option>
+                            <option value="Administrativa">Administrativa</option>
+                        </select>
+                    </label>
+                    <label class="saep-full-width">
+                        Ocorrência
+                        <textarea id="descricaoOcorrenciaTurma" rows="6" placeholder="Descreva a ocorrência da turma..." required></textarea>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarOcorrenciaTurma">Cancelar</button>
                 </div>
             </form>
         </div>
