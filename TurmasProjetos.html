@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acompanhamento Pedagógico</title>
+    <title>Turmas - Projetos</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,10 +33,10 @@
                 <section class="panel">
                     <div class="panel-header">
                         <div>
-                            <h2 class="o-container__turmas">Turmas em Andamento</h2>
-                            <p class="panel-subtitle">Acompanhe, edite e finalize as turmas em execução.</p>
+                            <h2 class="o-container__turmas">Turmas - Projetos</h2>
+                            <p class="panel-subtitle">Cadastre turmas com projeto vinculado e acompanhe os registros.</p>
                         </div>
-                        <button type="button" onclick="abrirModalCadastro()" class="o-container__turmas__cadastrar">Cadastrar Turmas</button>
+                        <button type="button" onclick="abrirModalCadastroTurmaProjeto()" class="o-container__turmas__cadastrar">Cadastrar Turmas</button>
                     </div>
 
                     <div class="table-scroll">
@@ -46,13 +46,14 @@
                                     <th>Código da Turma</th>
                                     <th>Nome Reduzido</th>
                                     <th>Curso</th>
+                                    <th>Projeto</th>
                                     <th>Data Início</th>
                                     <th>Data Fim</th>
                                     <th>Instrutor</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="corpotablecadastrodeTurmas"></tbody>
+                            <tbody id="corpotablecadastrodeTurmasProjetos"></tbody>
                         </table>
                     </div>
                 </section>
@@ -60,41 +61,45 @@
         </div>
     </div>
 
-    <div id="modalCadastroTurma" class="modal-cadastro" aria-hidden="true">
+    <div id="modalCadastroTurmaProjeto" class="modal-cadastro" aria-hidden="true">
         <div class="modal-content">
-            <h3 id="modalTitulo">Cadastrar turma</h3>
-            <form id="formCadastroTurma" onsubmit="cadastrarTurmas(event)">
-                <input type="hidden" id="indiceTurmaEdicao" value="">
+            <h3 id="modalTituloTurmaProjeto">Cadastrar turma com projeto</h3>
+            <form id="formCadastroTurmaProjeto" onsubmit="salvarTurmasProjetos(event)">
+                <input type="hidden" id="indiceTurmaProjetoEdicao" value="">
                 <div class="form-grid">
                     <label>
                         Código da Turma
-                        <input id="codigoTurma" type="text" required>
+                        <input id="codigoTurmaProjeto" type="text" required>
                     </label>
                     <label>
                         Nome Reduzido
-                        <input id="nomeReduzido" type="text" required>
+                        <input id="nomeReduzidoProjeto" type="text" required>
                     </label>
                     <label>
                         Curso
-                        <input id="curso" type="text" required>
+                        <input id="cursoProjeto" type="text" required>
+                    </label>
+                    <label>
+                        Projeto
+                        <input id="projeto" type="text" placeholder="Escreva de que projeto esta turma faz parte" required>
                     </label>
                     <label>
                         Nome do Instrutor
-                        <input id="instrutor" type="text" required>
+                        <input id="instrutorProjeto" type="text" required>
                     </label>
                     <label>
                         Data Início
-                        <input id="dataInicio" type="date" required>
+                        <input id="dataInicioProjeto" type="date" required>
                     </label>
                     <label>
                         Data Fim
-                        <input id="dataFim" type="date" required>
+                        <input id="dataFimProjeto" type="date" required>
                     </label>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" id="btnSalvarTurma" class="btn-primary">Cadastrar</button>
-                    <button type="button" class="btn-secondary" onclick="fecharModalCadastro()">Cancelar</button>
+                    <button type="submit" id="btnSalvarTurmaProjeto" class="btn-primary">Cadastrar</button>
+                    <button type="button" class="btn-secondary" onclick="fecharModalCadastroTurmaProjeto()">Cancelar</button>
                 </div>
             </form>
         </div>

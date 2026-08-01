@@ -1,12 +1,15 @@
 const STORAGE_KEY = "turmasCadastradas";
 const STORAGE_KEY_FINALIZADAS = "turmasFinalizadas";
+const STORAGE_KEY_TURMAS_PROJETOS = "turmasProjetos";
 const STORAGE_KEY_OCORRENCIAS = "ocorrenciasPedagogicas";
 const STORAGE_KEY_OCORRENCIAS_TURMA = "ocorrenciasTurmaPedagogicas";
+const STORAGE_KEY_OCORRENCIAS_PROJETOS_TURMA = "ocorrenciasProjetoTurmaPedagogicas";
 const STORAGE_KEY_ALUNOS = "alunosPorTurma";
 const STORAGE_SYNC_REGISTRY_KEY = "__acompanhamentoSyncRegistry__";
 const STORAGE_SYNC_STATIC_KEYS = [
     STORAGE_KEY,
     STORAGE_KEY_FINALIZADAS,
+    STORAGE_KEY_TURMAS_PROJETOS,
     "seeducTurmas",
     "seeducRegistros",
     "saepDatas",
@@ -24,7 +27,8 @@ const STORAGE_SYNC_STATIC_KEYS = [
 const STORAGE_SYNC_PREFIXES = [
     `${STORAGE_KEY_ALUNOS}_`,
     `${STORAGE_KEY_OCORRENCIAS}_`,
-    `${STORAGE_KEY_OCORRENCIAS_TURMA}_`
+    `${STORAGE_KEY_OCORRENCIAS_TURMA}_`,
+    `${STORAGE_KEY_OCORRENCIAS_PROJETOS_TURMA}_`
 ];
 const APP_SYNC_CONFIG = window.APP_SYNC_CONFIG || {};
 const APP_SYNC_STATE = {
@@ -56,6 +60,7 @@ const SAEP_RESUMO_DASHBOARD_CACHE = {};
 const GEMINI_KEY_SESSION_STORAGE = "geminiApiKeyOcorrencia";
 const GEMINI_KEY_LOCAL_STORAGE = "geminiApiKeyOcorrencia";
 const ULTIMA_TURMA_OCORRENCIA_SESSION_STORAGE = "ultimaTurmaOcorrenciaSelecionada";
+const ULTIMA_TURMA_OCORRENCIA_PROJETO_SESSION_STORAGE = "ultimaTurmaOcorrenciaProjetoSelecionada";
 const OCORRENCIAS_TURMA_ABA_ATIVA_STORAGE = "ocorrenciasTurmaAbaAtiva";
 const SAEP_ABAS_OBRIGATORIAS = [
     "D. por Competência - Cruzamento",
@@ -638,6 +643,139 @@ function fecharModalCadastro() {
     }
 }
 
+function abrirModalCadastroTurmaProjeto() {
+    const modal = document.getElementById("modalCadastroTurmaProjeto");
+    const form = document.getElementById("formCadastroTurmaProjeto");
+    const titulo = document.getElementById("modalTituloTurmaProjeto");
+    const botaoSalvar = document.getElementById("btnSalvarTurmaProjeto");
+
+    if (modal) {
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+    }
+
+    if (form) {
+        const chaveRascunho = obterChaveRascunhoFormulario("formCadastroTurmaProjeto");
+        const temRascunho = Boolean(localStorage.getItem(chaveRascunho));
+
+        if (!temRascunho) {
+            form.reset();
+        } else {
+            restaurarRascunhoFormulario("formCadastroTurmaProjeto", form);
+        }
+
+        const indice = document.getElementById("indiceTurmaProjetoEdicao");
+        if (indice) {
+            indice.value = "";
+        }
+    }
+
+    if (titulo) {
+        titulo.textContent = "Cadastrar turma com projeto";
+    }
+
+    if (botaoSalvar) {
+        botaoSalvar.textContent = "Cadastrar";
+    }
+}
+
+function abrirModalEdicaoTurmaProjeto(index) {
+    const turmas = carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS);
+    const turma = turmas[index];
+
+    if (!turma) {
+        return;
+    }
+
+    document.getElementById("codigoTurmaProjeto").value = turma.codigoTurma || "";
+    document.getElementById("nomeReduzidoProjeto").value = turma.nomeReduzido || "";
+    document.getElementById("cursoProjeto").value = turma.curso || "";
+    document.getElementById("projeto").value = turma.projeto || "";
+    document.getElementById("dataInicioProjeto").value = turma.dataInicio || "";
+    document.getElementById("dataFimProjeto").value = turma.dataFim || "";
+    document.getElementById("instrutorProjeto").value = turma.instrutor || "";
+    document.getElementById("indiceTurmaProjetoEdicao").value = index;
+
+    const modal = document.getElementById("modalCadastroTurmaProjeto");
+    const titulo = document.getElementById("modalTituloTurmaProjeto");
+    const botaoSalvar = document.getElementById("btnSalvarTurmaProjeto");
+
+    if (modal) {
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+    }
+
+    if (titulo) {
+        titulo.textContent = "Editar turma com projeto";
+    }
+
+    if (botaoSalvar) {
+        botaoSalvar.textContent = "Salvar alterações";
+    }
+}
+
+function fecharModalCadastroTurmaProjeto() {
+    const modal = document.getElementById("modalCadastroTurmaProjeto");
+    const form = document.getElementById("formCadastroTurmaProjeto");
+
+    if (modal) {
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
+    }
+
+    if (form) {
+        form.reset();
+        const indice = document.getElementById("indiceTurmaProjetoEdicao");
+        if (indice) {
+            indice.value = "";
+        }
+    }
+
+    const titulo = document.getElementById("modalTituloTurmaProjeto");
+    const botaoSalvar = document.getElementById("btnSalvarTurmaProjeto");
+
+    if (titulo) {
+        titulo.textContent = "Cadastrar turma com projeto";
+    }
+
+    if (botaoSalvar) {
+        botaoSalvar.textContent = "Cadastrar";
+    }
+}
+
+function salvarTurmasProjetos(event) {
+    event.preventDefault();
+
+    const turma = {
+        codigoTurma: document.getElementById("codigoTurmaProjeto").value.trim(),
+        nomeReduzido: document.getElementById("nomeReduzidoProjeto").value.trim(),
+        curso: document.getElementById("cursoProjeto").value.trim(),
+        projeto: document.getElementById("projeto").value.trim(),
+        dataInicio: document.getElementById("dataInicioProjeto").value,
+        dataFim: document.getElementById("dataFimProjeto").value,
+        instrutor: document.getElementById("instrutorProjeto").value.trim()
+    };
+
+    if (!turma.codigoTurma || !turma.nomeReduzido || !turma.curso || !turma.projeto || !turma.dataInicio || !turma.dataFim || !turma.instrutor) {
+        alert("Preencha todos os campos para cadastrar a turma com projeto.");
+        return;
+    }
+
+    const turmasSalvas = carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS);
+    const indiceEdicao = document.getElementById("indiceTurmaProjetoEdicao").value;
+
+    if (indiceEdicao !== "") {
+        turmasSalvas[parseInt(indiceEdicao, 10)] = turma;
+    } else {
+        turmasSalvas.push(turma);
+    }
+
+    salvarTurmasNoStorage(turmasSalvas, STORAGE_KEY_TURMAS_PROJETOS);
+    limparRascunhoFormulario("formCadastroTurmaProjeto");
+    renderizarPaginaAtual();
+    fecharModalCadastroTurmaProjeto();
+}
+
 function salvarTurmasNoStorage(turmas, storageKey = STORAGE_KEY) {
     registrarChaveParaSync(storageKey);
     localStorage.setItem(storageKey, JSON.stringify(turmas));
@@ -702,9 +840,18 @@ function renderizarTabelaTurmas(turmas, containerId = "corpotablecadastrodeTurma
             turma.instrutor
         ];
 
-        dados.forEach((valor) => {
+        dados.forEach((valor, indiceValor) => {
             const celula = document.createElement("td");
-            celula.textContent = valor;
+            if (indiceValor === 0) {
+                const botaoCodigo = document.createElement("button");
+                botaoCodigo.type = "button";
+                botaoCodigo.className = "link-button";
+                botaoCodigo.textContent = valor;
+                botaoCodigo.addEventListener("click", () => abrirPaginaDetalhesTurmaProjeto(turma.codigoTurma));
+                celula.appendChild(botaoCodigo);
+            } else {
+                celula.textContent = valor;
+            }
             linha.appendChild(celula);
         });
 
@@ -733,6 +880,80 @@ function renderizarTabelaTurmas(turmas, containerId = "corpotablecadastrodeTurma
         linha.appendChild(celulaAcoes);
         tabela.appendChild(linha);
     });
+}
+
+function renderizarTabelaTurmasProjetos(turmas, containerId = "corpotablecadastrodeTurmasProjetos") {
+    const tabela = document.getElementById(containerId);
+    if (!tabela) {
+        return;
+    }
+
+    tabela.innerHTML = "";
+
+    if (!Array.isArray(turmas) || turmas.length === 0) {
+        const linhaVazia = document.createElement("tr");
+        const celulaVazia = document.createElement("td");
+        celulaVazia.colSpan = 8;
+        celulaVazia.textContent = "Nenhuma turma com projeto cadastrada.";
+        linhaVazia.appendChild(celulaVazia);
+        tabela.appendChild(linhaVazia);
+        return;
+    }
+
+    turmas.forEach((turma, index) => {
+        const linha = document.createElement("tr");
+        const dados = [
+            turma.codigoTurma,
+            turma.nomeReduzido,
+            turma.curso,
+            turma.projeto,
+            formatarDataParaExibir(turma.dataInicio),
+            formatarDataParaExibir(turma.dataFim),
+            turma.instrutor
+        ];
+
+        dados.forEach((valor) => {
+            const celula = document.createElement("td");
+            celula.textContent = valor;
+            linha.appendChild(celula);
+        });
+
+        const celulaAcoes = document.createElement("td");
+        const botaoEditar = criarBotaoAcao("✏️", "btn-edit", () => abrirModalEdicaoTurmaProjeto(index));
+        const botaoExcluir = criarBotaoAcao("🗑️", "btn-delete", () => excluirTurmaProjeto(index));
+        const botaoOcorrencias = criarBotaoAcao("Ocorrências", "btn-secondary", () => abrirPaginaDetalhesTurmaProjeto(turma.codigoTurma));
+
+        celulaAcoes.appendChild(botaoEditar);
+        celulaAcoes.appendChild(botaoExcluir);
+        celulaAcoes.appendChild(botaoOcorrencias);
+        linha.appendChild(celulaAcoes);
+
+        tabela.appendChild(linha);
+    });
+}
+
+function excluirTurmaProjeto(index) {
+    const turmas = carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS);
+    if (!turmas[index]) {
+        return;
+    }
+
+    const confirmacao = window.confirm("Deseja realmente excluir esta turma com projeto?");
+    if (!confirmacao) {
+        return;
+    }
+
+    turmas.splice(index, 1);
+    salvarTurmasNoStorage(turmas, STORAGE_KEY_TURMAS_PROJETOS);
+    renderizarPaginaAtual();
+}
+
+function abrirPaginaDetalhesTurmaProjeto(codigoTurma) {
+    window.location.href = `TurmasProjetosDetalhes.html?turma=${encodeURIComponent(codigoTurma)}`;
+}
+
+function obterTurmaProjetoPorCodigo(codigoTurma) {
+    return carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS).find((item) => item.codigoTurma === codigoTurma) || null;
 }
 
 function excluirTurma(index, storageKey) {
@@ -961,6 +1182,16 @@ function renderizarPaginaAtual() {
 
     if (pagina === "index.html" || pagina === "index" || pagina === "") {
         renderizarTabelaTurmas(carregarTurmasDoStorage(STORAGE_KEY), "corpotablecadastrodeTurmas", "andamento");
+        return;
+    }
+
+    if (pagina.includes("turmasprojetosdetalhes")) {
+        renderizarDetalhesTurmaProjetoNaPagina();
+        return;
+    }
+
+    if (pagina.includes("turmasprojetos")) {
+        renderizarTabelaTurmasProjetos(carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS), "corpotablecadastrodeTurmasProjetos");
         return;
     }
 
@@ -6143,6 +6374,211 @@ function excluirOcorrenciaTurma(codigoTurma, ocorrenciaId) {
     salvarOcorrenciasGeraisDaTurma(codigoTurma, ocorrencias);
     renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma);
     mostrarAbaOcorrenciasTurma(codigoTurma, "turma");
+}
+
+function obterChaveOcorrenciasProjetoTurma(codigoTurma) {
+    return `${STORAGE_KEY_OCORRENCIAS_PROJETOS_TURMA}_${codigoTurma}`;
+}
+
+function carregarOcorrenciasProjetoDaTurma(codigoTurma) {
+    const ocorrencias = carregarTurmasDoStorage(obterChaveOcorrenciasProjetoTurma(codigoTurma));
+    if (!Array.isArray(ocorrencias)) {
+        return [];
+    }
+
+    return ocorrencias.map((item, index) => ({
+        id: item?.id || `${codigoTurma}-projeto-${index + 1}`,
+        data: item?.data || "",
+        tipo: item?.tipo || "Pedagógica",
+        descricao: item?.descricao || ""
+    }));
+}
+
+function salvarOcorrenciasProjetoDaTurma(codigoTurma, ocorrencias) {
+    salvarTurmasNoStorage(ocorrencias, obterChaveOcorrenciasProjetoTurma(codigoTurma));
+}
+
+function renderizarOcorrenciasProjetoNaPagina(codigoTurma) {
+    const container = document.getElementById("listaOcorrenciasProjeto");
+    if (!container) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasProjetoDaTurma(codigoTurma)
+        .slice()
+        .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime());
+
+    container.innerHTML = `
+        <div class="saep-card">
+            <div class="saep-card__header">
+                <h3>Ocorrências do projeto</h3>
+            </div>
+            <div class="table-scroll">
+                <table class="o-container__turmas__cadastrar__tabela seeduc-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo de ocorrência</th>
+                            <th>Ocorrência</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${ocorrencias.length === 0 ? '<tr><td colspan="4">Nenhuma ocorrência registrada para esta turma.</td></tr>' : ocorrencias.map((item) => `
+                            <tr>
+                                <td>${item.data ? formatarDataParaExibir(item.data) : "-"}</td>
+                                <td>${item.tipo || "-"}</td>
+                                <td>${item.descricao || "-"}</td>
+                                <td>
+                                    <button type="button" class="btn-edit" title="Editar ocorrência" onclick="abrirModalOcorrenciaProjeto('${codigoTurma}', '${item.id}')">✏️</button>
+                                    <button type="button" class="btn-delete" title="Excluir ocorrência" onclick="excluirOcorrenciaProjeto('${codigoTurma}', '${item.id}')">🗑️</button>
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderizarDetalhesTurmaProjetoNaPagina() {
+    const codigoTurmaParam = new URLSearchParams(window.location.search).get("turma");
+    const codigoTurmaSalvo = obterValorPersistente(ULTIMA_TURMA_OCORRENCIA_PROJETO_SESSION_STORAGE);
+    const codigoTurma = (codigoTurmaParam || codigoTurmaSalvo || "").trim();
+    const titulo = document.getElementById("tituloTurmaProjetoOcorrencia");
+    const dadosTurma = document.getElementById("dadosTurmaProjetoOcorrencia");
+    const containerOcorrencias = document.getElementById("listaOcorrenciasProjeto");
+    const botaoCadastrarOcorrencia = document.getElementById("btnCadastrarOcorrenciaProjeto");
+    const campoCodigo = document.getElementById("codigoTurmaOcorrenciaProjeto");
+
+    if (!titulo || !dadosTurma || !containerOcorrencias || !botaoCadastrarOcorrencia || !campoCodigo) {
+        return;
+    }
+
+    if (!codigoTurma) {
+        titulo.textContent = "Turma não selecionada";
+        dadosTurma.textContent = "Volte para a lista de turmas com projeto e selecione uma turma.";
+        containerOcorrencias.innerHTML = "";
+        return;
+    }
+
+    salvarValorPersistente(ULTIMA_TURMA_OCORRENCIA_PROJETO_SESSION_STORAGE, codigoTurma);
+
+    const turma = obterTurmaProjetoPorCodigo(codigoTurma);
+    if (!turma) {
+        titulo.textContent = "Turma não encontrada";
+        dadosTurma.textContent = "A turma selecionada não está mais disponível.";
+        containerOcorrencias.innerHTML = "";
+        return;
+    }
+
+    titulo.textContent = turma.codigoTurma;
+    dadosTurma.textContent = `${turma.curso} | Projeto: ${turma.projeto} | ${turma.instrutor} | ${formatarDataParaExibir(turma.dataInicio)} a ${formatarDataParaExibir(turma.dataFim)}`;
+    campoCodigo.value = codigoTurma;
+    botaoCadastrarOcorrencia.onclick = () => abrirModalOcorrenciaProjeto(codigoTurma);
+
+    renderizarOcorrenciasProjetoNaPagina(codigoTurma);
+}
+
+function abrirModalOcorrenciaProjeto(codigoTurma, ocorrenciaId = "") {
+    const modal = document.getElementById("modalOcorrenciaProjeto");
+    const form = document.getElementById("formOcorrenciaProjeto");
+    const titulo = document.getElementById("modalTituloOcorrenciaProjeto");
+    const campoCodigo = document.getElementById("codigoTurmaOcorrenciaProjeto");
+    const campoId = document.getElementById("ocorrenciaProjetoIdEdicao");
+    const campoData = document.getElementById("dataOcorrenciaProjeto");
+    const campoTipo = document.getElementById("tipoOcorrenciaProjeto");
+    const campoDescricao = document.getElementById("descricaoOcorrenciaProjeto");
+    const botaoCancelar = document.getElementById("btnCancelarOcorrenciaProjeto");
+
+    if (!modal || !form || !titulo || !campoCodigo || !campoId || !campoData || !campoTipo || !campoDescricao || !botaoCancelar) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasProjetoDaTurma(codigoTurma);
+    const ocorrencia = ocorrencias.find((item) => item.id === ocorrenciaId) || null;
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+
+    campoCodigo.value = codigoTurma;
+    campoId.value = ocorrencia?.id || "";
+    campoData.value = ocorrencia?.data || "";
+    campoTipo.value = ocorrencia?.tipo || "";
+    campoDescricao.value = ocorrencia?.descricao || "";
+    titulo.textContent = ocorrencia ? "Editar ocorrência do projeto" : "Cadastrar ocorrência do projeto";
+
+    botaoCancelar.onclick = fecharModalOcorrenciaProjeto;
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            fecharModalOcorrenciaProjeto();
+        }
+    };
+
+    form.onsubmit = (event) => salvarOcorrenciaProjeto(event);
+}
+
+function fecharModalOcorrenciaProjeto() {
+    const modal = document.getElementById("modalOcorrenciaProjeto");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+function salvarOcorrenciaProjeto(event) {
+    event.preventDefault();
+
+    const codigoTurma = document.getElementById("codigoTurmaOcorrenciaProjeto")?.value?.trim();
+    const ocorrenciaId = document.getElementById("ocorrenciaProjetoIdEdicao")?.value?.trim();
+    const data = document.getElementById("dataOcorrenciaProjeto")?.value || "";
+    const tipo = document.getElementById("tipoOcorrenciaProjeto")?.value?.trim() || "";
+    const descricao = document.getElementById("descricaoOcorrenciaProjeto")?.value?.trim() || "";
+
+    if (!codigoTurma || !data || !tipo || !descricao) {
+        alert("Informe data, tipo e descrição da ocorrência do projeto.");
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasProjetoDaTurma(codigoTurma);
+    const payload = {
+        id: ocorrenciaId || `${Date.now()}`,
+        data,
+        tipo,
+        descricao
+    };
+
+    if (ocorrenciaId) {
+        const indice = ocorrencias.findIndex((item) => item.id === ocorrenciaId);
+        if (indice >= 0) {
+            ocorrencias[indice] = payload;
+        }
+    } else {
+        ocorrencias.push(payload);
+    }
+
+    salvarOcorrenciasProjetoDaTurma(codigoTurma, ocorrencias);
+    limparRascunhoFormulario("formOcorrenciaProjeto");
+    fecharModalOcorrenciaProjeto();
+    renderizarOcorrenciasProjetoNaPagina(codigoTurma);
+}
+
+function excluirOcorrenciaProjeto(codigoTurma, ocorrenciaId) {
+    if (!codigoTurma || !ocorrenciaId) {
+        return;
+    }
+
+    const confirmou = window.confirm("Deseja realmente excluir esta ocorrência do projeto?");
+    if (!confirmou) {
+        return;
+    }
+
+    const ocorrencias = carregarOcorrenciasProjetoDaTurma(codigoTurma).filter((item) => item.id !== ocorrenciaId);
+    salvarOcorrenciasProjetoDaTurma(codigoTurma, ocorrencias);
+    renderizarOcorrenciasProjetoNaPagina(codigoTurma);
 }
 
 function obterApiKeyGeminiOcorrencia() {

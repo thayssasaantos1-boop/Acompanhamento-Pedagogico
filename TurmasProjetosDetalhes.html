@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turmas - Projetos | Ocorrências</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="o-menu">
+            <div class="menu-brand"></div>
+            <nav class="o-menu__section">
+                <a href="index.html">Turmas em Andamento</a>
+                <a href="Ocorrências.html">Ocorrências</a>
+                <a href="SAEP.html">SAEP</a>
+                <a href="TurmasProjetos.html">Turmas - Projetos</a>
+                <a href="SEEDUC.html">SEEDUC</a>
+                <a href="TurmasFinalizadas.html">Turmas Finalizadas</a>
+            </nav>
+        </aside>
+
+        <div class="main-area">
+            <header class="o-header">
+                <div class="header-title">
+                    <img src="senai - Editado.png" alt="Logo Firjan SENAI" class="header-logo">
+                    <h1>Acompanhamento Pedagógico</h1>
+                </div>
+            </header>
+
+            <main class="o-container">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 id="tituloTurmaProjetoOcorrencia" class="o-container__turmas">Turma</h2>
+                            <p id="dadosTurmaProjetoOcorrencia" class="panel-subtitle"></p>
+                        </div>
+                        <div class="panel-header__actions">
+                            <button type="button" id="btnCadastrarOcorrenciaProjeto" class="o-container__turmas__cadastrar">Cadastrar Ocorrências</button>
+                        </div>
+                    </div>
+
+                    <div id="listaOcorrenciasProjeto" class="occurrence-list"></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modalOcorrenciaProjeto" class="modal-cadastro" aria-hidden="true">
+        <div class="modal-content modal-content--ocorrencia">
+            <form id="formOcorrenciaProjeto">
+                <h3 id="modalTituloOcorrenciaProjeto">Cadastrar ocorrência do projeto</h3>
+                <input type="hidden" id="codigoTurmaOcorrenciaProjeto" value="">
+                <input type="hidden" id="ocorrenciaProjetoIdEdicao" value="">
+                <div class="form-grid">
+                    <label>
+                        Data
+                        <input id="dataOcorrenciaProjeto" type="date" required>
+                    </label>
+                    <label>
+                        Tipo de ocorrência
+                        <input id="tipoOcorrenciaProjeto" type="text" placeholder="Digite o tipo da ocorrência" required>
+                    </label>
+                    <label class="saep-full-width">
+                        Ocorrência
+                        <textarea id="descricaoOcorrenciaProjeto" rows="6" placeholder="Descreva a ocorrência do projeto..." required></textarea>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <button type="button" class="btn-secondary" id="btnCancelarOcorrenciaProjeto">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="sync-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
