@@ -4,22 +4,11 @@
 		{
 			"label": "publish-saep-main",
 			"type": "shell",
-			"command": "git",
+			"command": "powershell",
 			"args": [
-				"add",
-				"SAEP.html",
-				"app.js",
-				"style.css",
-				";",
-				"git",
-				"commit",
-				"-m",
-				"Adiciona registros SAEP na tela principal",
-				";",
-				"git",
-				"push",
-				"origin",
-				"main"
+				"-NoProfile",
+				"-Command",
+				"git add SAEP.html app.js style.css; git commit -m 'Adiciona registros SAEP na tela principal'; git push origin main"
 			],
 			"isBackground": false,
 			"problemMatcher": [],
@@ -28,7 +17,12 @@
 		{
 			"label": "publish-all-changes",
 			"type": "shell",
-			"command": "git add . ; git commit -m \"Publica ajustes finais do SAEP\" ; git push origin main",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"git add .; git commit -m \"Reforca persistencia global das turmas e projetos\"; git push origin main"
+			],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
@@ -36,7 +30,12 @@
 		{
 			"label": "publish-all-changes-single-quote",
 			"type": "shell",
-			"command": "git add . ; git commit -m 'Publica ajustes finais do SAEP' ; git push origin main",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"git add .; git commit -m \"Reforca persistencia global das turmas e projetos\"; git push origin main"
+			],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
@@ -44,7 +43,12 @@
 		{
 			"label": "publish-saep-tab-fix",
 			"type": "shell",
-			"command": "git add app.js ; git commit -m 'Corrige persistencia das abas SAEP' ; git push origin main",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"git add app.js; git commit -m 'Corrige persistencia das abas SAEP'; git push origin main"
+			],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
@@ -52,7 +56,12 @@
 		{
 			"label": "publish-final-saep-round",
 			"type": "shell",
-			"command": "git add SAEP.html SAEPDetalhes.html app.js style.css ; git commit -m 'Publica ajustes finais do fluxo SAEP' ; git push origin main",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"git add SAEP.html SAEPDetalhes.html app.js style.css; git commit -m \"Publica ajustes finais do fluxo SAEP\"; git push origin main"
+			],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"

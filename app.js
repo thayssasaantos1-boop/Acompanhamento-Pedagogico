@@ -74,6 +74,33 @@ function obterChaveRascunhoFormulario(formId) {
     return `${FORM_DRAFT_STORAGE_PREFIX}${formId}`;
 }
 
+function persistirDadosLocal(storageKey, dados, opcoes = {}) {
+    if (!storageKey) {
+        return dados;
+    }
+
+    const {
+        registrarSync = false,
+        salvarSession = false,
+        serializar = true
+    } = opcoes;
+
+    const valor = serializar ? JSON.stringify(dados) : dados;
+
+    localStorage.setItem(storageKey, valor);
+
+    if (salvarSession) {
+        sessionStorage.setItem(storageKey, valor);
+    }
+
+    if (registrarSync) {
+        registrarChaveParaSync(storageKey);
+        agendarSincronizacaoRemota();
+    }
+
+    return dados;
+}
+
 function salvarRascunhoFormulario(formId, form) {
     if (!formId || !form) {
         return;
@@ -94,7 +121,7 @@ function salvarRascunhoFormulario(formId, form) {
         dados[chave] = campo.value;
     });
 
-    localStorage.setItem(obterChaveRascunhoFormulario(formId), JSON.stringify(dados));
+    persistirDadosLocal(obterChaveRascunhoFormulario(formId), dados);
 }
 
 function restaurarRascunhoFormulario(formId, form) {
@@ -190,8 +217,7 @@ function salvarValorPersistente(chave, valor) {
         return;
     }
 
-    localStorage.setItem(chave, valor);
-    sessionStorage.setItem(chave, valor);
+    persistirDadosLocal(chave, valor, { salvarSession: true, serializar: false });
 }
 
 function configurarPersistenciaRascunhoTodosFormularios() {
@@ -210,6 +236,21 @@ function salvarRascunhoTodosFormularios() {
     });
 }
 
+function salvarEstadoPersistenteAgora() {
+    salvarRascunhoTodosFormularios();
+
+    try {
+        persistirDadosLocal("__appState__", {
+            pagina: obterNomeDaPagina(),
+            pathname: window.location.pathname,
+            search: window.location.search,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.warn("Não foi possível salvar o estado global da aplicação:", error);
+    }
+}
+
 function configurarReforcoPersistenciaGlobal() {
     if (persistenciaGlobalFormulariosAtiva) {
         configurarPersistenciaRascunhoTodosFormularios();
@@ -219,15 +260,21 @@ function configurarReforcoPersistenciaGlobal() {
     persistenciaGlobalFormulariosAtiva = true;
     configurarPersistenciaRascunhoTodosFormularios();
 
-    const salvarTudo = () => salvarRascunhoTodosFormularios();
+    const salvarTudo = () => salvarEstadoPersistenteAgora();
 
     window.addEventListener("beforeunload", salvarTudo);
     window.addEventListener("pagehide", salvarTudo);
+    window.addEventListener("unload", salvarTudo);
+    window.addEventListener("focus", salvarTudo);
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
             salvarTudo();
         }
     });
+
+    window.setInterval(() => {
+        salvarTudo();
+    }, 10000);
 
     if (typeof MutationObserver !== "undefined" && document.body) {
         observadorFormulariosPersistencia = new MutationObserver((mutacoes) => {
@@ -777,9 +824,7 @@ function salvarTurmasProjetos(event) {
 }
 
 function salvarTurmasNoStorage(turmas, storageKey = STORAGE_KEY) {
-    registrarChaveParaSync(storageKey);
-    localStorage.setItem(storageKey, JSON.stringify(turmas));
-    agendarSincronizacaoRemota();
+    return persistirDadosLocal(storageKey, turmas, { registrarSync: true });
 }
 
 function carregarTurmasDoStorage(storageKey = STORAGE_KEY) {
@@ -921,10 +966,12 @@ function renderizarTabelaTurmasProjetos(turmas, containerId = "corpotablecadastr
         const celulaAcoes = document.createElement("td");
         const botaoEditar = criarBotaoAcao("✏️", "btn-edit", () => abrirModalEdicaoTurmaProjeto(index));
         const botaoExcluir = criarBotaoAcao("🗑️", "btn-delete", () => excluirTurmaProjeto(index));
+        const botaoFinalizar = criarBotaoAcao("✔️", "btn-finish", () => finalizarTurmaProjeto(index));
         const botaoOcorrencias = criarBotaoAcao("Ocorrências", "btn-secondary", () => abrirPaginaDetalhesTurmaProjeto(turma.codigoTurma));
 
         celulaAcoes.appendChild(botaoEditar);
         celulaAcoes.appendChild(botaoExcluir);
+        celulaAcoes.appendChild(botaoFinalizar);
         celulaAcoes.appendChild(botaoOcorrencias);
         linha.appendChild(celulaAcoes);
 
@@ -991,7 +1038,35 @@ function finalizarTurma(index) {
     salvarTurmasNoStorage(turmasAndamento, STORAGE_KEY);
     salvarTurmasNoStorage(turmasFinalizadas, STORAGE_KEY_FINALIZADAS);
     renderizarPaginaAtual();
-    window.location.href = "TurmasFinalizadas.html";
+
+    window.setTimeout(() => {
+        window.location.href = "TurmasFinalizadas.html";
+    }, 80);
+}
+
+function finalizarTurmaProjeto(index) {
+    const turmasProjetos = carregarTurmasDoStorage(STORAGE_KEY_TURMAS_PROJETOS);
+    const turma = turmasProjetos[index];
+    if (!turma) {
+        return;
+    }
+
+    const confirmacao = window.confirm("Deseja finalizar esta turma com projeto e movê-la para a página de finalizadas?");
+    if (!confirmacao) {
+        return;
+    }
+
+    const turmasFinalizadas = carregarTurmasDoStorage(STORAGE_KEY_FINALIZADAS);
+    turmasProjetos.splice(index, 1);
+    turmasFinalizadas.push(turma);
+
+    salvarTurmasNoStorage(turmasProjetos, STORAGE_KEY_TURMAS_PROJETOS);
+    salvarTurmasNoStorage(turmasFinalizadas, STORAGE_KEY_FINALIZADAS);
+    renderizarPaginaAtual();
+
+    window.setTimeout(() => {
+        window.location.href = "TurmasFinalizadas.html";
+    }, 80);
 }
 
 function obterTurmaPorCodigo(codigoTurma) {
@@ -6270,7 +6345,15 @@ function abrirModalOcorrencia(codigoTurma, alunoNome = "", ocorrencia = null) {
 
     const botaoSalvar = document.getElementById("salvarOcorrencia");
     if (botaoSalvar) {
-        botaoSalvar.onclick = salvarOcorrencia;
+        botaoSalvar.onclick = () => salvarOcorrencia();
+    }
+
+    const form = document.getElementById("formOcorrencia");
+    if (form) {
+        form.onsubmit = (event) => {
+            event.preventDefault();
+            salvarOcorrencia();
+        };
     }
 }
 
@@ -6358,6 +6441,7 @@ function salvarOcorrenciaTurma(event) {
     fecharModalOcorrenciaTurma();
     renderizarOcorrenciasGeraisTurmaNaPagina(codigoTurma);
     mostrarAbaOcorrenciasTurma(codigoTurma, "turma");
+    return true;
 }
 
 function excluirOcorrenciaTurma(codigoTurma, ocorrenciaId) {
@@ -6564,6 +6648,7 @@ function salvarOcorrenciaProjeto(event) {
     limparRascunhoFormulario("formOcorrenciaProjeto");
     fecharModalOcorrenciaProjeto();
     renderizarOcorrenciasProjetoNaPagina(codigoTurma);
+    return true;
 }
 
 function excluirOcorrenciaProjeto(codigoTurma, ocorrenciaId) {
@@ -6761,6 +6846,7 @@ function salvarOcorrencia() {
     limparRascunhoFormulario("formOcorrencia");
     fecharModalOcorrencia();
     renderizarDetalhesTurmaNaPagina();
+    return true;
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
