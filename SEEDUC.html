@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -37,11 +37,14 @@
                             <p class="panel-subtitle">Gerencie as turmas e os registros de acompanhamento SEEDUC.</p>
                         </div>
                         <button type="button" class="o-container__turmas__cadastrar" onclick="abrirModalCadastroSeeduc()">Cadastrar Turmas</button>
+<button onclick="salvarDados()">Salvar</button>
                     </div>
 
                     <div class="seeduc-submenu">
                         <button type="button" class="seeduc-submenu__item active" data-aba="turmas" onclick="mostrarAbaSeeduc('turmas')">Turmas</button>
+<button onclick="salvarDados()">Salvar</button>
                         <button type="button" class="seeduc-submenu__item" data-aba="relatorios" onclick="mostrarAbaSeeduc('relatorios')">Relatórios</button>
+<button onclick="salvarDados()">Salvar</button>
                     </div>
 
                     <div id="conteudoSeeduc" class="seeduc-relatorio"></div>
@@ -104,7 +107,9 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalCadastroSeeduc()">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -114,3 +119,4 @@
     <script src="app.js"></script>
 </body>
 </html>
+

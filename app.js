@@ -70,6 +70,26 @@ const SAEP_ABAS_OBRIGATORIAS = [
 ];
 const FORM_DRAFT_STORAGE_PREFIX = "__formDrafts__";
 
+function salvarDados() {
+    // Pega o que o usuario digitou
+    const campoEntrada = document.getElementById("menuInput") || document.getElementById("meuInput");
+    let informacao = campoEntrada ? campoEntrada.value : "";
+    // salva na memória do navegador com o nome 'cadastroUsuario'
+    localStorage.setItem("cadastroUsuario", informacao);
+}
+
+// Executa automaticamente assim que a página termina de carregar
+window.onload = function () {
+    let dadosSalvos = localStorage.getItem("cadastroUsuario");
+    // se existissem dados salvos antes, coloca eles de volta no campo
+    if (dadosSalvos) {
+        const campoEntrada = document.getElementById("meuInput") || document.getElementById("menuInput");
+        if (campoEntrada) {
+            campoEntrada.value = dadosSalvos;
+        }
+    }
+};
+
 function obterChaveRascunhoFormulario(formId) {
     return `${FORM_DRAFT_STORAGE_PREFIX}${formId}`;
 }
@@ -87,15 +107,19 @@ function persistirDadosLocal(storageKey, dados, opcoes = {}) {
 
     const valor = serializar ? JSON.stringify(dados) : dados;
 
-    localStorage.setItem(storageKey, valor);
+    try {
+        localStorage.setItem(storageKey, valor);
 
-    if (salvarSession) {
-        sessionStorage.setItem(storageKey, valor);
-    }
+        if (salvarSession) {
+            sessionStorage.setItem(storageKey, valor);
+        }
 
-    if (registrarSync) {
-        registrarChaveParaSync(storageKey);
-        agendarSincronizacaoRemota();
+        if (registrarSync) {
+            registrarChaveParaSync(storageKey);
+            agendarSincronizacaoRemota();
+        }
+    } catch (error) {
+        console.warn(`Não foi possível salvar ${storageKey}:`, error);
     }
 
     return dados;
@@ -819,6 +843,7 @@ function salvarTurmasProjetos(event) {
 
     salvarTurmasNoStorage(turmasSalvas, STORAGE_KEY_TURMAS_PROJETOS);
     limparRascunhoFormulario("formCadastroTurmaProjeto");
+    salvarEstadoPersistenteAgora();
     renderizarPaginaAtual();
     fecharModalCadastroTurmaProjeto();
 }
@@ -834,7 +859,16 @@ function carregarTurmasDoStorage(storageKey = STORAGE_KEY) {
     }
 
     try {
-        return JSON.parse(dados);
+        const valor = JSON.parse(dados);
+        if (Array.isArray(valor)) {
+            return valor;
+        }
+
+        if (valor && typeof valor === "object") {
+            return [valor];
+        }
+
+        return [];
     } catch (error) {
         console.error("Erro ao carregar dados salvos:", error);
         return [];
@@ -1037,11 +1071,12 @@ function finalizarTurma(index) {
 
     salvarTurmasNoStorage(turmasAndamento, STORAGE_KEY);
     salvarTurmasNoStorage(turmasFinalizadas, STORAGE_KEY_FINALIZADAS);
+    salvarEstadoPersistenteAgora();
     renderizarPaginaAtual();
 
     window.setTimeout(() => {
         window.location.href = "TurmasFinalizadas.html";
-    }, 80);
+    }, 120);
 }
 
 function finalizarTurmaProjeto(index) {
@@ -1062,11 +1097,12 @@ function finalizarTurmaProjeto(index) {
 
     salvarTurmasNoStorage(turmasProjetos, STORAGE_KEY_TURMAS_PROJETOS);
     salvarTurmasNoStorage(turmasFinalizadas, STORAGE_KEY_FINALIZADAS);
+    salvarEstadoPersistenteAgora();
     renderizarPaginaAtual();
 
     window.setTimeout(() => {
         window.location.href = "TurmasFinalizadas.html";
-    }, 80);
+    }, 120);
 }
 
 function obterTurmaPorCodigo(codigoTurma) {
@@ -1323,6 +1359,7 @@ function cadastrarTurmas(event) {
 
     salvarTurmasNoStorage(turmasSalvas, STORAGE_KEY);
     limparRascunhoFormulario("formCadastroTurma");
+    salvarEstadoPersistenteAgora();
     renderizarPaginaAtual();
     fecharModalCadastro();
 }

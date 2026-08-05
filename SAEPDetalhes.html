@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -18,9 +18,13 @@
                 <span>Gestão pedagógica</span>
             </div>
             <button type="button" class="saep-sidebar__item active" data-aba="resumo">Resumo</button>
+<button onclick="salvarDados()">Salvar</button>
             <button type="button" class="saep-sidebar__item" data-aba="diagnosticas">Avaliações Diagnósticas</button>
+<button onclick="salvarDados()">Salvar</button>
             <button type="button" class="saep-sidebar__item" data-aba="plano">Plano de Ação</button>
+<button onclick="salvarDados()">Salvar</button>
             <button type="button" class="saep-sidebar__item" data-aba="praticos">Avaliações Práticas</button>
+<button onclick="salvarDados()">Salvar</button>
         </aside>
 
         <main class="saep-main">
@@ -72,6 +76,7 @@
                 <div class="saep-toolbar">
                     <h2>Avaliações Diagnósticas</h2>
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoDiagnostica">Cadastrar Avaliação Diagnóstica</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
                 <div id="saepListaDiagnosticas" class="saep-diagnosticas-list"></div>
             </section>
@@ -88,6 +93,7 @@
                 <div class="saep-toolbar">
                     <h2>Plano de Ação</h2>
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAcao">Cadastrar Plano de Ação</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
                 <div id="saepTabelaPlano"></div>
             </section>
@@ -96,6 +102,7 @@
                 <div class="saep-toolbar">
                     <h2>Avaliações Objetivas</h2>
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoObjetivo">Nova avaliação</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
                 <div id="saepTabelaObjetivos"></div>
             </section>
@@ -104,6 +111,7 @@
                 <div class="saep-toolbar">
                     <h2>Avaliações Práticas</h2>
                     <button type="button" class="o-container__turmas__cadastrar" id="btnNovaAvaliacaoPratico">Nova avaliação</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
                 <div id="saepTabelaPraticos"></div>
             </section>
@@ -111,7 +119,9 @@
             <section id="saepSectionSaep" class="saep-section" style="display:none;">
                 <div class="seeduc-submenu" id="saepSubmenuPrincipal">
                     <button type="button" class="seeduc-submenu__item active" data-submenu="historico" onclick="mostrarSubmenuSaepDetalhes('historico')">Histórico</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="seeduc-submenu__item" data-submenu="plataformas" onclick="mostrarSubmenuSaepDetalhes('plataformas')">Plataformas</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
 
                 <div id="saepSubmenuHistorico">
@@ -119,11 +129,15 @@
                         <div class="saep-card__header">
                             <h3>Histórico escolar</h3>
                             <button type="button" class="o-container__turmas__cadastrar" id="btnCadastroHistoricoSaep">Adicionar Registro</button>
+<button onclick="salvarDados()">Salvar</button>
                         </div>
                         <div id="saepHistoricoTabs" class="saep-historico-tabs">
                             <button type="button" class="saep-historico-tab active" data-subaba="saep">SAEP</button>
+<button onclick="salvarDados()">Salvar</button>
                             <button type="button" class="saep-historico-tab" data-subaba="praticas">Avaliações Práticas</button>
+<button onclick="salvarDados()">Salvar</button>
                             <button type="button" class="saep-historico-tab" data-subaba="objetivas">Avaliações Objetivas</button>
+<button onclick="salvarDados()">Salvar</button>
                         </div>
                         <div id="saepHistoricoConteudo"></div>
                     </div>
@@ -135,6 +149,7 @@
                             <div class="saep-card__header">
                                 <h3>Mural de Informativos</h3>
                                 <button type="button" class="o-container__turmas__cadastrar" id="btnCadastrarInformativos">Novo Informativo</button>
+<button onclick="salvarDados()">Salvar</button>
                             </div>
                             <div id="saepMuralDestaque"></div>
                         </div>
@@ -165,7 +180,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalCadastroSaep()">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -204,7 +221,9 @@
                 <div id="diagnosticaLoading" class="saep-muted" style="display:none;">Salvando avaliação...</div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarDiagnostica">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -244,7 +263,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalAcaoSaep()">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -285,6 +306,7 @@
                             <input id="saepUploadExcel" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" />
                             <div class="saep-upload-actions">
                                 <button type="button" class="o-container__turmas__cadastrar" id="btnImportarSaepExcel">Importar desempenho</button>
+<button onclick="salvarDados()">Salvar</button>
                             </div>
                             <p class="saep-muted saep-upload-note">
                                 Abas obrigatórias: D. por Competência - Cruzamento, D. por Competência - Itens,
@@ -296,7 +318,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" onclick="fecharModalAvaliacaoSaep()">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -323,7 +347,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarInformativoPlataforma">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -364,7 +390,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarDatasSaepPlataforma">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -399,7 +427,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarEtapasAcesso">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -416,7 +446,9 @@
                 </label>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarObservacaoEtapa">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -458,7 +490,9 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Salvar</button>
+<button onclick="salvarDados()">Salvar</button>
                     <button type="button" class="btn-secondary" id="btnCancelarHistoricoCadastroSaep">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
                 </div>
             </form>
         </div>
@@ -471,7 +505,9 @@
             <input id="histRegistroExcluirId" type="hidden" value="">
             <div class="form-actions">
                 <button type="button" class="btn-delete" id="btnConfirmarExcluirHistoricoEscolar">Excluir</button>
+<button onclick="salvarDados()">Salvar</button>
                 <button type="button" class="btn-secondary" id="btnCancelarExcluirHistoricoEscolar">Cancelar</button>
+<button onclick="salvarDados()">Salvar</button>
             </div>
         </div>
     </div>
@@ -481,3 +517,4 @@
     <script src="app.js"></script>
 </body>
 </html>
+
