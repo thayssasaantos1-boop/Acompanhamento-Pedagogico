@@ -6,6 +6,7 @@ const STORAGE_KEY_OCORRENCIAS_TURMA = "ocorrenciasTurmaPedagogicas";
 const STORAGE_KEY_OCORRENCIAS_PROJETOS_TURMA = "ocorrenciasProjetoTurmaPedagogicas";
 const STORAGE_KEY_ALUNOS = "alunosPorTurma";
 const STORAGE_SYNC_REGISTRY_KEY = "__acompanhamentoSyncRegistry__";
+const STORAGE_SYNC_DIRTY_KEY = "__acompanhamentoSyncDirty__";
 const STORAGE_SYNC_STATIC_KEYS = [
     STORAGE_KEY,
     STORAGE_KEY_FINALIZADAS,
@@ -97,6 +98,7 @@ function persistirDadosLocal(storageKey, dados, opcoes = {}) {
 
         if (registrarSync) {
             registrarChaveParaSync(storageKey);
+            localStorage.setItem(STORAGE_SYNC_DIRTY_KEY, "1");
             agendarSincronizacaoRemota();
         }
     } catch (error) {
@@ -583,6 +585,7 @@ async function enviarDadosRemotos() {
     }
 
     APP_SYNC_STATE.lastSerializedPayload = payloadSerializado;
+    localStorage.setItem(STORAGE_SYNC_DIRTY_KEY, "0");
     return true;
 }
 
@@ -681,6 +684,11 @@ async function inicializarSincronizacaoRemota() {
     APP_SYNC_STATE.initialized = true;
 
     try {
+        const possuiAlteracoesPendentes = localStorage.getItem(STORAGE_SYNC_DIRTY_KEY) === "1";
+        if (possuiAlteracoesPendentes) {
+            await enviarDadosRemotos();
+        }
+
         const houveDadosRemotos = await baixarDadosRemotos();
 
         if (houveDadosRemotos) {
