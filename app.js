@@ -126,7 +126,7 @@ function salvarRascunhoFormulario(formId, form) {
         dados[chave] = campo.value;
     });
 
-    persistirDadosLocal(obterChaveRascunhoFormulario(formId), dados);
+    persistirDadosLocal(obterChaveRascunhoFormulario(formId), dados, { registrarSync: true });
 }
 
 function restaurarRascunhoFormulario(formId, form) {
@@ -214,7 +214,7 @@ function salvarRascunhoCampoGlobal(campo) {
     persistirDadosLocal(obterChaveRascunhoCampoGlobal(campo.id), {
         valor: campo.value,
         atualizadoEm: new Date().toISOString()
-    });
+    }, { registrarSync: true });
 }
 
 function restaurarRascunhoCampoGlobal(campo) {
@@ -314,7 +314,7 @@ function salvarValorPersistente(chave, valor) {
         return;
     }
 
-    persistirDadosLocal(chave, valor, { salvarSession: true, serializar: false });
+    persistirDadosLocal(chave, valor, { registrarSync: true, salvarSession: true, serializar: false });
 }
 
 function configurarPersistenciaRascunhoTodosFormularios() {
