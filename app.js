@@ -69,26 +69,7 @@ const SAEP_ABAS_OBRIGATORIAS = [
     "Desempenho Individual - Detalhe"
 ];
 const FORM_DRAFT_STORAGE_PREFIX = "__formDrafts__";
-
-function salvarDados() {
-    // Pega o que o usuario digitou
-    const campoEntrada = document.getElementById("menuInput") || document.getElementById("meuInput");
-    let informacao = campoEntrada ? campoEntrada.value : "";
-    // salva na memória do navegador com o nome 'cadastroUsuario'
-    localStorage.setItem("cadastroUsuario", informacao);
-}
-
-// Executa automaticamente assim que a página termina de carregar
-window.onload = function () {
-    let dadosSalvos = localStorage.getItem("cadastroUsuario");
-    // se existissem dados salvos antes, coloca eles de volta no campo
-    if (dadosSalvos) {
-        const campoEntrada = document.getElementById("meuInput") || document.getElementById("menuInput");
-        if (campoEntrada) {
-            campoEntrada.value = dadosSalvos;
-        }
-    }
-};
+const FIELD_DRAFT_STORAGE_PREFIX = "__fieldDrafts__";
 
 function obterChaveRascunhoFormulario(formId) {
     return `${FORM_DRAFT_STORAGE_PREFIX}${formId}`;
@@ -195,6 +176,98 @@ function limparRascunhoFormulario(formId) {
     localStorage.removeItem(obterChaveRascunhoFormulario(formId));
 }
 
+function campoEhElegivelParaRascunhoGlobal(campo) {
+    if (!(campo instanceof HTMLElement)) {
+        return false;
+    }
+
+    if (!campo.id || campo.disabled || campo.readOnly) {
+        return false;
+    }
+
+    if (campo.tagName === "TEXTAREA" || campo.tagName === "SELECT") {
+        return true;
+    }
+
+    if (campo.tagName !== "INPUT") {
+        return false;
+    }
+
+    const tipo = String(campo.type || "text").toLowerCase();
+    if (["file", "password", "hidden", "submit", "button", "reset"].includes(tipo)) {
+        return false;
+    }
+
+    return true;
+}
+
+function obterChaveRascunhoCampoGlobal(campoId) {
+    const pagina = obterNomeDaPagina();
+    return `${FIELD_DRAFT_STORAGE_PREFIX}${pagina}::${campoId}`;
+}
+
+function salvarRascunhoCampoGlobal(campo) {
+    if (!campoEhElegivelParaRascunhoGlobal(campo)) {
+        return;
+    }
+
+    persistirDadosLocal(obterChaveRascunhoCampoGlobal(campo.id), {
+        valor: campo.value,
+        atualizadoEm: new Date().toISOString()
+    });
+}
+
+function restaurarRascunhoCampoGlobal(campo) {
+    if (!campoEhElegivelParaRascunhoGlobal(campo)) {
+        return;
+    }
+
+    const valorCru = localStorage.getItem(obterChaveRascunhoCampoGlobal(campo.id));
+    if (!valorCru) {
+        return;
+    }
+
+    try {
+        const dados = JSON.parse(valorCru);
+        const valor = dados && typeof dados === "object" ? String(dados.valor ?? "") : "";
+
+        if (campo.tagName === "SELECT") {
+            campo.value = valor;
+            return;
+        }
+
+        if (!campo.value) {
+            campo.value = valor;
+        }
+    } catch (error) {
+        console.warn(`Não foi possível restaurar o rascunho do campo ${campo.id}:`, error);
+    }
+}
+
+function configurarPersistenciaRascunhoCamposGlobais() {
+    document.querySelectorAll("input[id], textarea[id], select[id]").forEach((campo) => {
+        if (!campoEhElegivelParaRascunhoGlobal(campo)) {
+            return;
+        }
+
+        if (campo.dataset.rascunhoGlobalConfigurado === "1") {
+            return;
+        }
+
+        const salvarAtual = () => salvarRascunhoCampoGlobal(campo);
+        campo.addEventListener("input", salvarAtual);
+        campo.addEventListener("change", salvarAtual);
+        restaurarRascunhoCampoGlobal(campo);
+        campo.dataset.rascunhoGlobalConfigurado = "1";
+    });
+}
+
+function salvarRascunhoTodosCamposGlobais() {
+    document.querySelectorAll("input[id], textarea[id], select[id]").forEach((campo) => {
+        salvarRascunhoCampoGlobal(campo);
+    });
+}
+
 function invalidarCacheResumoDashboardSaep(codigoTurma = "") {
     if (codigoTurma) {
         delete SAEP_RESUMO_DASHBOARD_CACHE[codigoTurma];
@@ -262,6 +335,7 @@ function salvarRascunhoTodosFormularios() {
 
 function salvarEstadoPersistenteAgora() {
     salvarRascunhoTodosFormularios();
+    salvarRascunhoTodosCamposGlobais();
 
     try {
         persistirDadosLocal("__appState__", {
@@ -278,11 +352,13 @@ function salvarEstadoPersistenteAgora() {
 function configurarReforcoPersistenciaGlobal() {
     if (persistenciaGlobalFormulariosAtiva) {
         configurarPersistenciaRascunhoTodosFormularios();
+        configurarPersistenciaRascunhoCamposGlobais();
         return;
     }
 
     persistenciaGlobalFormulariosAtiva = true;
     configurarPersistenciaRascunhoTodosFormularios();
+    configurarPersistenciaRascunhoCamposGlobais();
 
     const salvarTudo = () => salvarEstadoPersistenteAgora();
 
@@ -312,11 +388,17 @@ function configurarReforcoPersistenciaGlobal() {
                     if (node.matches?.("form[id]") || node.querySelector?.("form[id]")) {
                         precisaConfigurar = true;
                     }
+
+                    if (node.matches?.("input[id], textarea[id], select[id]")
+                        || node.querySelector?.("input[id], textarea[id], select[id]")) {
+                        precisaConfigurar = true;
+                    }
                 });
             });
 
             if (precisaConfigurar) {
                 configurarPersistenciaRascunhoTodosFormularios();
+                configurarPersistenciaRascunhoCamposGlobais();
             }
         });
 
