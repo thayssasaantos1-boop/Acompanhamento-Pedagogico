@@ -268,6 +268,12 @@ function salvarRascunhoTodosCamposGlobais() {
     });
 }
 
+function restaurarRascunhoTodosCamposGlobais() {
+    document.querySelectorAll("input[id], textarea[id], select[id]").forEach((campo) => {
+        restaurarRascunhoCampoGlobal(campo);
+    });
+}
+
 function invalidarCacheResumoDashboardSaep(codigoTurma = "") {
     if (codigoTurma) {
         delete SAEP_RESUMO_DASHBOARD_CACHE[codigoTurma];
@@ -323,6 +329,19 @@ function configurarPersistenciaRascunhoTodosFormularios() {
             configurarPersistenciaRascunhoFormulario(form.id);
         }
     });
+}
+
+function restaurarRascunhoTodosFormularios() {
+    document.querySelectorAll("form[id]").forEach((form) => {
+        if (form.id) {
+            restaurarRascunhoFormulario(form.id, form);
+        }
+    });
+}
+
+function restaurarRascunhosAposSyncRemoto() {
+    restaurarRascunhoTodosFormularios();
+    restaurarRascunhoTodosCamposGlobais();
 }
 
 function salvarRascunhoTodosFormularios() {
@@ -627,6 +646,7 @@ async function sincronizarComRemoto(modo = "bidirecional") {
         if (modo !== "push") {
             const aplicouRemoto = await baixarDadosRemotos();
             if (aplicouRemoto) {
+                restaurarRascunhosAposSyncRemoto();
                 renderizarPaginaAtual();
                 atualizarSaepDetalhesAposSyncRemoto();
             }
@@ -662,6 +682,10 @@ async function inicializarSincronizacaoRemota() {
 
     try {
         const houveDadosRemotos = await baixarDadosRemotos();
+
+        if (houveDadosRemotos) {
+            restaurarRascunhosAposSyncRemoto();
+        }
 
         if (!houveDadosRemotos && listarChavesSincronizaveis().some((chave) => localStorage.getItem(chave) !== null)) {
             await enviarDadosRemotos();
